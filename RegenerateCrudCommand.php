@@ -12,6 +12,7 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Process\PhpExecutableFinder;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Console\Question\ConfirmationQuestion;
 use Symfony\Component\Process\Exception\ProcessFailedException;
 
 class RegenerateCrudCommand extends Command
@@ -32,14 +33,23 @@ class RegenerateCrudCommand extends Command
 
         $io = new SymfonyStyle($input, $output);
         $arg1 = $input->getArgument('arg1');
-
+        $Rcontroller = false;
+        $unik = uniqid();
         if ($arg1) {
 
             #suppression de l'entité
             $nom = ucfirst("$arg1");
             $min = strtolower($nom);
-            $io->note(sprintf('Remove old controller %s ', $nom . 'Controller.php')); //  + );
-            $fs->remove('src/Controller/' . $nom . 'Controller.php');
+            $helper = $this->getHelper('question');
+            $Qcontroller = new ConfirmationQuestion("Conserver le controller?", false);
+            if (file_exists('src/Controller/' . $nom . 'Controller.php'))
+                if ($Rcontroller = $helper->ask($input, $output, $Qcontroller)) {
+                    $io->note(sprintf('Remove old controller %s ', $nom . 'Controller.php')); //  + );
+                    $fs->rename('src/Controller/' . $nom . 'Controller.php', '/tmp/' . $unik . $nom . 'Controller.old');
+                } else {
+                    $io->note("Remove old Controller $nom Controller ");
+                    $fs->remove('src/Controller/' . $nom . 'Controller.php');
+                }
             $io->note("Remove old Form $nom Type");
             $fs->remove('src/Form/' . $nom . 'Type.php');
             $io->note("Remove old Templates $min");
@@ -58,6 +68,13 @@ class RegenerateCrudCommand extends Command
             $phpBinaryPath = $phpBinaryFinder->find();
             $process = new Process([$phpBinaryPath, '/app/bin/console', 'make:crud', $nom]);
             $process->run();
+            //en fonction de la question sur controller on remet l'ancien controller
+            if ($Rcontroller) {
+                $io->note(sprintf('Move the old controller %s ', $nom . 'Controller.php')); //  + );
+                $fs->remove('src/Controller/' . $nom . 'Controller.php');
+                $fs->rename('/tmp/' . $unik . $nom . 'Controller.old', 'src/Controller/' . $nom . 'Controller.php');
+            }
+
 
             // executes after the command finishes
             if (!$process->isSuccessful()) {
