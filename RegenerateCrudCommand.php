@@ -17,7 +17,7 @@ use Symfony\Component\Process\Exception\ProcessFailedException;
 
 class RegenerateCrudCommand extends Command
 {
-    protected static $defaultName = 'make:crud-regenerate';
+    protected static $defaultName = 'make:regenerate-crud';
     protected static $defaultDescription = 'remove and regerate the crud of entitie';
 
     protected function configure()
