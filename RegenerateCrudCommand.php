@@ -41,15 +41,17 @@ class RegenerateCrudCommand extends Command
             $nom = ucfirst("$arg1");
             $min = strtolower($nom);
             $helper = $this->getHelper('question');
-            $Qcontroller = new ConfirmationQuestion("Conserver le controller?", false);
-            if (file_exists('src/Controller/' . $nom . 'Controller.php'))
-                if ($Rcontroller = $helper->ask($input, $output, $Qcontroller)) {
-                    $io->note(sprintf('Remove old controller %s ', $nom . 'Controller.php')); //  + );
+            $Qcontroller = new ConfirmationQuestion("Sauvegarder le controller?", false);
+            if (file_exists('src/Controller/' . $nom . 'Controller.php')) {
+                $Rcontroller = $helper->ask($input, $output, $Qcontroller);
+                if ($Rcontroller) {
+                    $io->note(sprintf('Sauvegarde old controller %s ', $nom . 'Controller.php')); //  + );
                     $fs->rename('src/Controller/' . $nom . 'Controller.php', '/tmp/' . $unik . $nom . 'Controller.old');
                 } else {
                     $io->note("Remove old Controller $nom Controller ");
                     $fs->remove('src/Controller/' . $nom . 'Controller.php');
                 }
+            }
             $io->note("Remove old Form $nom Type");
             $fs->remove('src/Form/' . $nom . 'Type.php');
             $io->note("Remove old Templates $min");
