@@ -41,7 +41,7 @@ class RegenerateCrudCommand extends Command
             $nom = ucfirst("$arg1");
             $min = strtolower($nom);
             $helper = $this->getHelper('question');
-            $Qcontroller = new ConfirmationQuestion("Sauvegarder le controller?", false);
+            $Qcontroller = new ConfirmationQuestion("Sauvegarder le controller?", true);
             if (file_exists('src/Controller/' . $nom . 'Controller.php')) {
                 $Rcontroller = $helper->ask($input, $output, $Qcontroller);
                 if ($Rcontroller) {
