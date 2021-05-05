@@ -41,21 +41,27 @@ class RegenerateCrudCommand extends Command
             $nom = ucfirst("$arg1");
             $min = strtolower($nom);
             $helper = $this->getHelper('question');
-            $Qcontroller = new ConfirmationQuestion("Sauvegarder le controller?", true);
+            $Qcontroller = new ConfirmationQuestion("Garder le controller?", true);
+            $dateDir = "old/" .  date('Y-m-d_H-i-s');
+            $fs->mkdir($dateDir);
+            $fs->mkdir($dateDir . '/Controller');
+            $fs->mkdir($dateDir . '/Form');
+
             if (file_exists('src/Controller/' . $nom . 'Controller.php')) {
                 $Rcontroller = $helper->ask($input, $output, $Qcontroller);
                 if ($Rcontroller) {
                     $io->note(sprintf('Sauvegarde old controller %s ', $nom . 'Controller.php')); //  + );
-                    $fs->rename('src/Controller/' . $nom . 'Controller.php', '/tmp/' . $unik . $nom . 'Controller.old');
+                    @rename('src/Controller/' . $nom . 'Controller.php', '/tmp/' . $unik . $nom . 'Controller.old');
                 } else {
                     $io->note("Remove old Controller $nom Controller ");
-                    $fs->remove('src/Controller/' . $nom . 'Controller.php');
+                    $fs->rename('src/Controller/' . $nom . 'Controller.php', $dateDir . '/Controller/' . $nom . 'Controller.php');
                 }
             }
-            $io->note("Remove old Form $nom Type");
-            $fs->remove('src/Form/' . $nom . 'Type.php');
-            $io->note("Remove old Templates $min");
-            $fs->remove('templates/' . $min);
+            $io->note("Save all in " . $dateDir . "/$nom ");
+            $io->note("move old Form $nom Type");
+            @rename('src/Form/' . $nom . 'Type.php', $dateDir . '/Form/' .  $nom . 'Type.php');
+            $io->note("move old Templates $min");
+            @rename('templates/' . $min, $dateDir . '/templates');
             #pour effacer lien avec le formtype
             $io->note("Update of Composer");
             $process = new Process(['composer', 'update']);
@@ -73,8 +79,8 @@ class RegenerateCrudCommand extends Command
             //en fonction de la question sur controller on remet l'ancien controller
             if ($Rcontroller) {
                 $io->note(sprintf('Move the old controller %s ', $nom . 'Controller.php')); //  + );
-                $fs->remove('src/Controller/' . $nom . 'Controller.php');
-                $fs->rename('/tmp/' . $unik . $nom . 'Controller.old', 'src/Controller/' . $nom . 'Controller.php');
+                @rename('src/Controller/' . $nom . 'Controller.php', 'old/Controller/' . $nom . 'Controller.php');
+                @rename('/tmp/' . $unik . $nom . 'Controller.old', 'src/Controller/' . $nom . 'Controller.php');
             }
 
 
