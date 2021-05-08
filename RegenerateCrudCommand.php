@@ -2,6 +2,7 @@
 
 namespace App\Command;
 
+use App\Service\FileFunctions;
 use Symfony\Component\Process\Process;
 use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Console\Command\Command;
@@ -30,38 +31,42 @@ class RegenerateCrudCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $fs = new Filesystem();
-
+        $ff = new FileFunctions();
         $io = new SymfonyStyle($input, $output);
         $arg1 = $input->getArgument('arg1');
         $Rcontroller = false;
         $unik = uniqid();
         if ($arg1) {
-
             #suppression de l'entité
             $nom = ucfirst("$arg1");
             $min = strtolower($nom);
             $helper = $this->getHelper('question');
-            $Qcontroller = new ConfirmationQuestion("Garder le controller?", true);
-            $dateDir = "old/" .  date('Y-m-d_H-i-s');
-            $fs->mkdir($dateDir);
-            $fs->mkdir($dateDir . '/Controller');
-            $fs->mkdir($dateDir . '/Form');
-
-            if (file_exists('src/Controller/' . $nom . 'Controller.php')) {
-                $Rcontroller = $helper->ask($input, $output, $Qcontroller);
-                if ($Rcontroller) {
-                    $io->note(sprintf('Sauvegarde old controller %s ', $nom . 'Controller.php')); //  + );
-                    @rename('src/Controller/' . $nom . 'Controller.php', '/tmp/' . $unik . $nom . 'Controller.old');
-                } else {
-                    $io->note("Remove old Controller $nom Controller ");
-                    $fs->rename('src/Controller/' . $nom . 'Controller.php', $dateDir . '/Controller/' . $nom . 'Controller.php');
+            $dateDir = "old/" .  date('Y-m-d_H-i-s') . '/';
+            $fichiers = [
+                'src/Controller/' . $nom . 'Controller.php',
+                'src/Form/' . $nom . 'Type.php',
+                'templates/' . $min . '/new.html.twig',
+                'templates/' . $min . '/show.html.twig',
+                'templates/' . $min . '/index.html.twig',
+                'templates/' . $min . '/_delete_form.html.twig',
+                'templates/' . $min . '/_form.html.twig',
+                'templates/' . $min . '/edit.html.twig'
+            ];
+            $resfichiers = [];
+            foreach ($fichiers as $fichier) {
+                if (file_exists($fichier)) {
+                    $controller = file_get_contents($fichier);
+                    if (strpos($controller, '******no_regenerate*****') !== false) {
+                        $io->note($fichier . ' marqué comme à ne pas regénérer');
+                        //creation des réperoires pour déplacer le fichier
+                        $ff->move($fichier, '/tmp/' . $unik . '/' . $fichier);
+                        $resfichiers[] = $fichier;
+                    } else {
+                        $ff->move($fichier, $dateDir . $fichier);
+                    }
                 }
             }
             $io->note("Save all in " . $dateDir . "/$nom ");
-            $io->note("move old Form $nom Type");
-            @rename('src/Form/' . $nom . 'Type.php', $dateDir . '/Form/' .  $nom . 'Type.php');
-            $io->note("move old Templates $min");
-            @rename('templates/' . $min, $dateDir . '/templates');
             #pour effacer lien avec le formtype
             $io->note("Update of Composer");
             $process = new Process(['composer', 'update']);
@@ -76,13 +81,10 @@ class RegenerateCrudCommand extends Command
             $phpBinaryPath = $phpBinaryFinder->find();
             $process = new Process([$phpBinaryPath, '/app/bin/console', 'make:crud', $nom]);
             $process->run();
-            //en fonction de la question sur controller on remet l'ancien controller
-            if ($Rcontroller) {
-                $io->note(sprintf('Move the old controller %s ', $nom . 'Controller.php')); //  + );
-                @rename('src/Controller/' . $nom . 'Controller.php', 'old/Controller/' . $nom . 'Controller.php');
-                @rename('/tmp/' . $unik . $nom . 'Controller.old', 'src/Controller/' . $nom . 'Controller.php');
+            //si le fichier a été marqué comme non regenerate on le remet en place
+            foreach ($resfichiers as $fichier) {
+                $ff->move('/tmp/' . $unik . '/' . $fichier, $fichier);
             }
-
 
             // executes after the command finishes
             if (!$process->isSuccessful()) {
