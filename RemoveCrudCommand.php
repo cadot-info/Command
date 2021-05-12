@@ -17,7 +17,7 @@ use Symfony\Component\Process\Exception\ProcessFailedException;
 
 class RemoveCrudCommand extends Command
 {
-    protected static $defaultName = 'Entitie:remove';
+    protected static $defaultName = 'entitie:remove';
     protected static $defaultDescription = 'remove entitie with controller, repository, form and template';
 
     protected function configure()
@@ -37,8 +37,8 @@ class RemoveCrudCommand extends Command
         if ($arg1) {
             $nom = ucfirst("$arg1");
             $helper = $this->getHelper('question');
-            $question = new ConfirmationQuestion("Supprimer l'entité " . $nom . ", son controller, ses templates, son repository et son formtype ?", false);
-            if (!$helper->ask($input, $output, $question)) {
+            $question = new ConfirmationQuestion("Supprimer l'entité " . $nom . ", son controller, ses templates, son repository et son formtype (n)?", false);
+            if ($helper->ask($input, $output, $question)) {
                 #suppression de l'entité
                 $min = strtolower($nom);
                 $io->note(sprintf('Remove controller %s ', $nom . 'Controller.php')); //  + );
@@ -50,7 +50,7 @@ class RemoveCrudCommand extends Command
                 $io->note("Remove Templates $min");
                 $fs->remove('templates/' . $min);
                 $io->note("Remove Entity");
-                $fs->remove('Entity/' . $nom . '.php');
+                $fs->remove('src/Entity/' . $nom . '.php');
             }
         } else
             $io->error('Please get the name of entitie');
