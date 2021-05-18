@@ -56,7 +56,7 @@ class RegenerateCrudCommand extends Command
             foreach ($fichiers as $fichier) {
                 if (file_exists($fichier)) {
                     $controller = file_get_contents($fichier);
-                    if (strpos($controller, '******no_regenerate*****') !== false) {
+                    if (strpos($controller, '*****no_regenerate*****') !== false) {
                         $io->note($fichier . ' marqué comme à ne pas regénérer');
                         //creation des réperoires pour déplacer le fichier
                         $ff->move($fichier, '/tmp/' . $unik . '/' . $fichier);
@@ -69,12 +69,12 @@ class RegenerateCrudCommand extends Command
             $io->note("Save all in " . $dateDir . "/$nom ");
             #pour effacer lien avec le formtype
             $io->note("Update of Composer");
-            $process = new Process(['composer', 'update']);
-            $process->run();
+            //$process = new Process(['composer', 'update']);
+            //$process->run();
             // executes after the command finishes
-            if (!$process->isSuccessful()) {
-                throw new ProcessFailedException($process);
-            }
+            //if (!$process->isSuccessful()) {
+            //    throw new ProcessFailedException($process);
+            //}
             #regenerate entitie
             $io->note("Recreate new CRUD $nom");
             $phpBinaryFinder = new PhpExecutableFinder();
