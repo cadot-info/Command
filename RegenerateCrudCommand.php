@@ -69,12 +69,12 @@ class RegenerateCrudCommand extends Command
             $io->note("Save all in " . $dateDir . "/$nom ");
             #pour effacer lien avec le formtype
             $io->note("Update of Composer");
-            //$process = new Process(['composer', 'update']);
-            //$process->run();
-            // executes after the command finishes
-            //if (!$process->isSuccessful()) {
-            //    throw new ProcessFailedException($process);
-            //}
+            $process = new Process(['composer', 'update']);
+            $process->run();
+            //executes after the command finishes
+            if (!$process->isSuccessful()) {
+                throw new ProcessFailedException($process);
+            }
             #regenerate entitie
             $io->note("Recreate new CRUD $nom");
             $phpBinaryFinder = new PhpExecutableFinder();
