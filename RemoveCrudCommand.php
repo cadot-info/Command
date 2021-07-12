@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Command;
+namespace App\CMCommand;
 
 use Symfony\Component\Process\Process;
 use Symfony\Component\Filesystem\Filesystem;

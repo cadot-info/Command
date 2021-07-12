@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Command;
+namespace App\CMCommand;
 
 use App\Service\FileFunctions;
 use Symfony\Component\Process\Process;
