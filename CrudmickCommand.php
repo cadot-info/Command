@@ -258,11 +258,9 @@ last %}
                     $ligne = ''; //pour mémoriser le retours des spéciaux
                     //recherche de la présence d'un type relation
                     $relationFind = ''; // pour mémoriser le type de relation
-                    foreach ($relations as $relation) {
-                        foreach ($val['AUTRE'] as $value) {
-                            if (strpos($relation, strToLower($value)) !== false) {
-                                $relationFind = $relation;
-                            }
+                    foreach ($val['AUTRE'] as $value) {
+                        if (in_array(strToLower($value), $relations) !== false) {
+                            $relationFind = $relations[in_array(strToLower($value), $relations)];
                         }
                     }
                     //si on a une relation
@@ -400,11 +398,11 @@ last %}
                     $ligne = ''; //pour mémoriser le retours des spéciaux
                     //recherche de la présence d'un type relation
                     $relationFind = ''; // pour mémoriser le type de relation
-                    foreach ($relations as $relation) {
-                        foreach ($val['AUTRE'] as $value) {
-                            if (strpos($relation, strToLower($value)) !== false) {
-                                $relationFind = $relation;
-                            }
+                    foreach ($val['AUTRE'] as $value) {
+                        if (
+                            in_array(strToLower($value), $relations) !== false
+                        ) {
+                            $relationFind = $relations[in_array(strToLower($value), $relations)];
                         }
                     }
                     //si on a une relation
@@ -649,11 +647,9 @@ use Symfony\Component\Routing\Annotation\Route;
                     $ligne = ''; //pour mémoriser le retours des spéciaux
                     //recherche de la présence d'un type relation
                     $relationFind = ''; // pour mémoriser le type de relation
-                    foreach ($relations as $relation) {
-                        foreach ($val['AUTRE'] as $value) {
-                            if (strpos($relation, strToLower($value)) !== false) {
-                                $relationFind = $relation;
-                            }
+                    foreach ($val['AUTRE'] as $value) {
+                        if (in_array(strToLower($value), $relations) !== false) {
+                            $relationFind = $relations[in_array(strToLower($value), $relations)];
                         }
                     }
                     $trouve_relation = false;
@@ -718,7 +714,7 @@ use Symfony\Component\Routing\Annotation\Route;
                 }
             } //fin de la boucle sur les fields
             $finalft = '<?php
-namespace APP\Form;
+namespace App\Form;
 
 use App\Entity\\' . $entitie . ' ;
 
