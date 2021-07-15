@@ -347,7 +347,11 @@ last %}
                             if ($val['ALIAS'] == 'ckeditor')
                                 $index .= '|cleanhtml';
                         //on ferme pour tous les types sauf fichier
-                        $index .= "}}";
+                        if (isset($val['ALIAS'])) {
+                            if ($val['ALIAS'] != 'fichier') {
+                                $index .= "}}";
+                            }
+                        } else $index .= "}}";
 
                         //on ferme la ligne pour tous
                         $index .= "</td>";
@@ -480,8 +484,8 @@ last %}
                                     } else {
                                         $sizef = 'width=' . $size[0] . 'px';
                                     }
-                                    $ligne .= "{%if " . $entitie . "." . $field . " %}" .
-                                        "<a data-toggle='popover-hover' data-original-title=\"\" title=\"\" data-img=\"{{voir('" . $field . "/'~" . $entitie . "." . $field . ")}}\"><img " . $sizef . " src=\"{{voir('" . $field . "/'~" . $entitie . "." . $field . ")}}\"></a> {% endif %}";
+                                    $ligne .= "{%if " . strtolower($entitie) . "." . $field . " %}" .
+                                        "<a data-toggle='popover-hover' data-original-title=\"\" title=\"\" data-img=\"{{voir('" . $field . "/'~" . strtolower($entitie) . "." . $field . ")}}\"><img " . $sizef . " src=\"{{voir('" . $field . "/'~" . strtolower($entitie) . "." . $field . ")}}\"></a> {% endif %}";
                                 }
                                 //type icone
                                 if ($typeFichier == 'icone') {
