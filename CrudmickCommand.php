@@ -87,7 +87,7 @@ class CrudmickCommand extends Command
                 /*                                                                                               CREATION DE NEW/EDIT */
                 /* ------------------------------------------------------------------------------------------------------------------ */
                 $new = '{% extends \'' . $res['id']['EXTEND'] . '\' %}';
-                $new = "
+                $new .= "
 {% set route = path(app.request.attributes.get('_route'), app.request.attributes.get('_route_params')) %}
 {% set action = path(app.request.attributes.get('_route'), app.request.attributes.get('_route_params')) | split('/') |
 last %}
@@ -707,10 +707,13 @@ use Symfony\Component\Routing\Annotation\Route;
                                 $biblio_use[] = 'Choice';
                             }
                         }
-
-                    $FT .= "\n->add('$field',$TYPE,['attr'=>[" . implode(',', $resAttr) . "]";
-                    if ($resOpt) $FT .= "," . implode(',', $resOpt);
-                    $FT .= "])";
+                    if ($field != 'id') {
+                        $FT .= "\n->add('$field',$TYPE,['attr'=>[" . implode(',', $resAttr) . "]";
+                        if ($resOpt) {
+                            $FT .= "," . implode(',', $resOpt);
+                        }
+                        $FT .= "])";
+                    }
                 }
             } //fin de la boucle sur les fields
             $finalft = '<?php
@@ -761,7 +764,7 @@ $builder';
 public function configureOptions(OptionsResolver $resolver)
 {
 $resolver->setDefaults([
-            \'data_class\' => Faq::class,
+            \'data_class\' => ' . $entitie . '::class,
         ]);
     }
 }
