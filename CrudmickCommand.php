@@ -673,7 +673,6 @@ use Symfony\Component\Routing\Annotation\Route;
                 $relation_use = [];
                 $collection_use = [];
                 $biblio_use = [];
-                $ft = '';
                 $FT = '';
                 //on boucle sur les fields
                 foreach ($res as $field => $val) {
@@ -687,8 +686,6 @@ use Symfony\Component\Routing\Annotation\Route;
                             $relationFind = $relations[in_array(strToLower($value), $relations)];
                         }
                     }
-                    $trouve_relation = false;
-                    $trouve_collection = false;
                     $TYPE = 'null';
                     $resAttr = array(); //stock des attrs
                     $resOpt = array(); //stock des opts
@@ -700,7 +697,6 @@ use Symfony\Component\Routing\Annotation\Route;
                             $TYPE = ucfirst($tab_ALIAS[$val['ALIAS']]) . "Type::class";
                             $resAttr[] = "'data-inputmask' => \"'alias': '" . $val['ALIAS'] . "'\"";
                             if ($tab_ALIAS[$val['ALIAS']] == 'money') $resAttr[] = "'divisor' => 100";
-                            if ($tab_ALIAS[$val['ALIAS']] == 'file') $resAttr[] = "'data_class' => null";
                             //on ajoute le type dans les use si pas existant
                             if (!in_array(ucfirst($tab_ALIAS[$val['ALIAS']]), $biblio_use)) {
                                 $biblio_use[] = ucfirst($tab_ALIAS[$val['ALIAS']]);
@@ -709,6 +705,8 @@ use Symfony\Component\Routing\Annotation\Route;
                             //sinon on met juste le type dans add
                             $TYPE = $field;
                         }
+
+
                     //travail sur ATTR
 
                     if (isset($val['ATTR'])) {
@@ -734,6 +732,9 @@ use Symfony\Component\Routing\Annotation\Route;
                             }
                         }
                     }
+                    //on ajoute dans $resOpt si on a un type fichier pour la conversion
+                    if (isset($val['ALIAS'])) if ($val['ALIAS'] == 'fichier') $resOpt[] = "'data_class' => null";
+
                     //gestion des choices
                     if (isset($val['OPT']))
                         if (in_array('choices', $val['OPT']) !== false) {
