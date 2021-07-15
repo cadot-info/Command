@@ -345,7 +345,7 @@ last %}
                         //pour le type ckeditor on ajoute un filtre
                         if (isset($val['ALIAS']))
                             if ($val['ALIAS'] == 'ckeditor')
-                                $index .= '|cleanhtml';
+                                $index .= '|striptags|u.truncate(200, "...", false)|cleanhtml';
                         //on ferme pour tous les types sauf fichier
                         if (isset($val['ALIAS'])) {
                             if ($val['ALIAS'] != 'fichier') {
