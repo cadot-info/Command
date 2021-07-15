@@ -252,11 +252,11 @@ last %}
                     } else {
                         $index .= "<tbody>";
                     }
-                }
-                $index .= '
+                } else $index .= '
             </tr>
 </thead>
-<tbody>
+<tbody>';
+                $index .= '
 {% for  ' . $entitie . '  in  ' . strtolower($entitie) . 's  %}
     <tr data-num="{{' . $entitie . '.id }}">';
                 //pour ne pas voir superadmin
@@ -350,18 +350,18 @@ last %}
                 }
                 //ajout des actions
                 $index .= "<td>
-                    <form method='post' action=\"{{ path('" . $entitie . "_delete', {'$field':  $entitie.$field }) }}\" 
+                    <form method='post' action=\"{{ path('" . strtolower($entitie) . "_delete', {'id':  $entitie.id }) }}\" 
                     onsubmit=\"return confirm('Etes-vous sûr de vouloir effacer cet item?');\">
                     <div class='row'>
                         <input type=\"hidden\" name=\"_token\" value=\"{{ csrf_token('delete' ~  $entitie . $field ) }}\">
-                        <a class='btn btn-xs btn-primary' data-toggle='tooltip' title='Voir' href=\"{{ path('" . $entitie . "_show', {'$field':  $entitie.$field }) }}\"><i class=\"icone fas fa-glasses \"></i></a>
-                        <a class='btn btn-xs btn-secondary' data-toggle='tooltip' title='Editer' href=\"{{ path('" . $entitie . "_edit', {'$field':  $entitie.$field }) }}\"><i class=\"icone fas fa-pen \"></i></a>
-                        <a class='btn btn-xs btn-secondary' data-toggle='tooltip' title='Dupliquer' href=\"{{ path('" . $entitie . "_copy', {'$field':  $entitie.$field }) }}\"><i class=\"icone fas fa-copy \"></i></a>
+                        <a class='btn btn-xs btn-primary' data-toggle='tooltip' title='Voir' href=\"{{ path('" . strtolower($entitie) . "_show', {'id':  $entitie.id }) }}\"><i class=\"icone fas fa-glasses \"></i></a>
+                        <a class='btn btn-xs btn-secondary' data-toggle='tooltip' title='Editer' href=\"{{ path('" . strtolower($entitie) . "_edit', {'id':  $entitie.id }) }}\"><i class=\"icone fas fa-pen \"></i></a>
+                        <a class='btn btn-xs btn-secondary' data-toggle='tooltip' title='Dupliquer' href=\"{{ path('" . strtolower($entitie) . "_copy',{'id':  $entitie.id }) }}\"><i class=\"icone fas fa-copy \"></i></a>
                         <button class=\"btn btn-xs btn-warning \"><i class=\"icone fas fa-trash \"></i></button>
                     </div>
                         </form>";
                 //fermeture de la ligne
-                $index .= "</tr>";
+                //$index .= "</tr>";
                 //fin pour cacher superadmin
                 //$index .= "{% endif %}";
                 $index .= "
@@ -570,6 +570,16 @@ use Symfony\Component\Routing\Annotation\Route;
         return $this->render(\'' . strTolower($entitie) . '/new.html.twig\', [
             \'' . strTolower($entitie) . '\' => $' . strTolower($entitie) . ',
             \'form\' => $form->createView()
+        ]);
+    }
+     /**
+     * @Route("/{id}", name="' . strTolower($entitie) . '_show", methods={"GET"})
+     */
+    public function show(Modele $modele): Response
+    {
+        return $this->render(\'' . strTolower($entitie) . '/show.html.twig\', [
+            \'' . strTolower($entitie) . '\' => $' . strTolower($entitie) . ',
+            \'form\' => $form->createView(),
         ]);
     }
       /**
