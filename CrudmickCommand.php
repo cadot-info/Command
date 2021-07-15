@@ -260,8 +260,8 @@ last %}
 {% for  ' . $entitie . '  in  ' . strtolower($entitie) . 's  %}
     <tr data-num="{{' . $entitie . '.id }}">';
                 //pour ne pas voir superadmin
-                $index .= "
-{% if 'ROLE_SUPER_ADMIN' not in " . strtolower($entitie) . ".roles %}";
+                //                 $index .= "
+                // {% if 'ROLE_SUPER_ADMIN' not in " . strtolower($entitie) . ".roles %}";
                 $relations = ['onetoone', 'manytoone', 'onetomany', 'manytomany'];
                 foreach ($res as $field => $val) {
                     //gestion des classes spéciales
@@ -363,7 +363,7 @@ last %}
                 //fermeture de la ligne
                 $index .= "</tr>";
                 //fin pour cacher superadmin
-                $index .= "{% endif %}";
+                //$index .= "{% endif %}";
                 $index .= "
             {% else %}
             <tr>
