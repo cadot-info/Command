@@ -37,7 +37,7 @@ class CrudmickCommand extends Command
                 $r = new \ReflectionClass(new $class);
                 //tableau de recherche
                 $aSupprimer = array('/**', '*/');
-                $mCrud = array('pour éviter retour false', 'ATTR', 'PARTIE', 'EXTEND', 'OPT', 'ALIAS', 'OPT', 'TPL');
+                $mCrud = array('pour éviter retour false', 'ATTR', 'PARTIE', 'EXTEND', 'OPT', 'ALIAS', 'OPT', 'TPL', 'TWIG');
                 $FUnique = array('ALIAS', 'EXTEND', 'PARTIE');
                 $res = array(); // retour de la recherche
                 foreach ($r->getProperties() as $property) {
@@ -333,7 +333,7 @@ last %}
                     //on a des filtres
                     $filtres = '';
                     if (isset($val['TWIG']))
-                        foreach ($val['TWIG'] as $twig => $value) {
+                        foreach ($val['TWIG'] as $twig) {
                             $filtres .= "|" . $twig;
                         }
                     //on vérifie s'il faut l'afficher (pas de no_index et pas du type relation
@@ -353,7 +353,7 @@ last %}
                     <form method='post' action=\"{{ path('" . strtolower($entitie) . "_delete', {'id':  $entitie.id }) }}\" 
                     onsubmit=\"return confirm('Etes-vous sûr de vouloir effacer cet item?');\">
                     <div class='row'>
-                        <input type=\"hidden\" name=\"_token\" value=\"{{ csrf_token('delete' ~  $entitie . $field ) }}\">
+                        <input type=\"hidden\" name=\"_token\" value=\"{{ csrf_token('delete' ~  $entitie . id ) }}\">
                         <a class='btn btn-xs btn-primary' data-toggle='tooltip' title='Voir' href=\"{{ path('" . strtolower($entitie) . "_show', {'id':  $entitie.id }) }}\"><i class=\"icone fas fa-glasses \"></i></a>
                         <a class='btn btn-xs btn-secondary' data-toggle='tooltip' title='Editer' href=\"{{ path('" . strtolower($entitie) . "_edit', {'id':  $entitie.id }) }}\"><i class=\"icone fas fa-pen \"></i></a>
                         <a class='btn btn-xs btn-secondary' data-toggle='tooltip' title='Dupliquer' href=\"{{ path('" . strtolower($entitie) . "_copy',{'id':  $entitie.id }) }}\"><i class=\"icone fas fa-copy \"></i></a>
@@ -390,15 +390,15 @@ last %}
                 }
 
                 //creation de show
-                $show = '{% extends ' . $res['id']['EXTEND'] . ' %}';
+                $show = "{% extends '"  . $res['id']['EXTEND'] . "' %}";
                 $show .= '
 {% block title %}  ' . $entitie . ' 
     {% endblock %}
 {% block body %} 
 <h1> ' . $entitie . ' </h1>';
                 //pour ne pas voir superadmin
-                $show .= "
-{% if 'ROLE_SUPER_ADMIN' not in " . strtolower($entitie) . ".roles %}";
+                //                 $show .= "
+                // {% if 'ROLE_SUPER_ADMIN' not in " . strtolower($entitie) . ".roles %}";
                 $show .= '
 <div class="col-12">
 <ul class="list-group">';
@@ -417,7 +417,7 @@ last %}
                     }
                     //si on a une relation
                     if ($relationFind) {
-                        $ligne = "\n<td>{{" . $entitie . "." . $field . "|json_encode";
+                        $ligne = "\n<td>{{" . strtolower($entitie) . "." . $field . "|json_encode";
                     }
                     //si on à un no_show
                     if (isset($val['ATTR']['no_show'])) {
@@ -440,7 +440,7 @@ last %}
                         $ligne .= "
                     {% set res=[] %}
                     {% for key,option in options %}
-                    {% if option in " . $entitie . "." . $field . " %}
+                    {% if option in " . strtolower($entitie) . "." . $field . " %}
                     {% set res=res|merge([key]) %}
                     {% endif %}
                     {% endfor %}
@@ -477,24 +477,24 @@ last %}
                                 }
                                 //type icone
                                 if ($typeFichier == 'icone') {
-                                    $ligne .= "{%if " . $entitie . " . " . $field . " %}" .
-                                        "<a data-toggle='popover-hover' data-original-title=\"\" title=\"\" data-img=\"{{voir('" . $field . "/'~" . $entitie . "." . $field . ")}}\"><img src=\"{{getico('" . $field . "/'~" . $entitie . "." . $field . ")}}\"></a> {% endif %}";
+                                    $ligne .= "{%if " . strtolower($entitie) . " . " . $field . " %}" .
+                                        "<a data-toggle='popover-hover' data-original-title=\"\" title=\"\" data-img=\"{{voir('" . $field . "/'~" . strtolower($entitie) . "." . $field . ")}}\"><img src=\"{{getico('" . $field . "/'~" . strtolower($entitie) . "." . $field . ")}}\"></a> {% endif %}";
                                 }
                                 //type texte
                                 if ($typeFichier == 'texte') {
-                                    $ligne .= '<label class="exNomFichier">' . "{{" . $entitie . "." . $field . "}}</label>";
+                                    $ligne .= '<label class="exNomFichier">' . "{{" . strtolower($entitie) . "." . $field . "}}</label>";
                                 }
                             } else {   //si c'est un autre ALIAS
-                                $ligne .= '{{' . $entitie . '.' . $field;
+                                $ligne .= '{{' . strtolower($entitie) . '.' . $field;
                             }
                         } else {   //si c'est un autre ALIAS
-                            $ligne .= '{{' . $entitie . '.' . $field;
+                            $ligne .= '{{' . strtolower($entitie) . '.' . $field;
                         }
                         //gestion des filtres à ajouter
                         //on a des filtres
                         $filtres = '';
                         if (isset($val['TWIG'])) {
-                            foreach ($val['TWIG'] as $twig => $value) {
+                            foreach ($val['TWIG'] as $twig) {
                                 $filtres .= "|" . $twig;
                             }
                         }
@@ -516,7 +516,7 @@ last %}
     </ul>
     </div>";
 
-                $show .= "\n" . '<a href="{{ path(\'' . $entitie . '_index\') }}" class="btn btn-secondary mr-2" type="button">Revenir à la liste</button></a>';
+                $show .= "\n" . '<a href="{{ path(\'' . strtolower($entitie) . '_index\') }}" class="btn btn-secondary mr-2" type="button">Revenir à la liste</button></a>';
 
                 $show .= "{% endblock %}";
                 if ($input->getOption('origin')) {
@@ -575,11 +575,10 @@ use Symfony\Component\Routing\Annotation\Route;
      /**
      * @Route("/{id}", name="' . strTolower($entitie) . '_show", methods={"GET"})
      */
-    public function show(Modele $modele): Response
+    public function show(' . $entitie . ' $' . strTolower($entitie) . '): Response
     {
         return $this->render(\'' . strTolower($entitie) . '/show.html.twig\', [
-            \'' . strTolower($entitie) . '\' => $' . strTolower($entitie) . ',
-            \'form\' => $form->createView(),
+            \'' . strTolower($entitie) . '\' => $' . strTolower($entitie) . '
         ]);
     }
       /**
