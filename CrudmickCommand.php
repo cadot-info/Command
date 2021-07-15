@@ -223,6 +223,7 @@ last %}
     <table class='table'>
         <thead>
             <tr>";
+
                 //on boucle sur les fields
                 foreach ($res as $field => $val) {
                     // on ajoute les entête
@@ -239,6 +240,8 @@ last %}
                         if (array_search('no_index', $val['ATTR']) === false) {
                             $index .= $entete;
                         }
+                    } else {
+                        $index .= $entete;
                     }
                 }
                 //on ajoute la colonne actions
@@ -339,8 +342,13 @@ last %}
                     //on vérifie s'il faut l'afficher (pas de no_index et pas du type relation
                     if (!isset($val['ATTR']['no_index']) && !$relationFind) {
                         $index .= $ligne . $filtres;
+                        //pour le type ckeditor on ajoute un filtre
+                        if (isset($val['ALIAS']))
+                            if ($val['ALIAS'] == 'ckeditor')
+                                $index .= '|cleanhtml';
                         //on ferme pour tous les types sauf fichier
                         $index .= "}}";
+
                         //on ferme la ligne pour tous
                         $index .= "</td>";
                         //si c'est une relation
@@ -501,6 +509,10 @@ last %}
                         //on vérifie s'il faut l'afficher (pas de no_index et pas du type relation
                         if (!isset($val['ATTR']['no_show'])) {
                             $show .= $ligne . $filtres;
+                            //pour le type ckeditor on ajoute un filtre
+                            if (isset($val['ALIAS']))
+                                if ($val['ALIAS'] == 'ckeditor')
+                                    $show .= '|cleanhtml';
                             //on ferme pour tous les types sauf fichier
                             if (isset($val['ALIAS'])) {
                                 if ($val['ALIAS'] != 'fichier') {
