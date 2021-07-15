@@ -113,7 +113,17 @@ last %}
 ";
                 //on boucle sur les fields sauf id
                 foreach ($res as $field => $val) {
-                    if ($field != 'id') {
+                    $no_new = false;
+                    //on vérifie que ce champ doit être affiché
+                    if (isset($val['ATTR']))
+                        foreach ($val['ATTR'] as  $attr) {
+                            if ($attr == 'no_new') $no_new = true;
+                        }
+                    //si no_new est vrai on dit qu'il est rendu
+                    if ($no_new)
+                        $new .= ' {% do form.' . $field . '.setRendered() %}';
+                    //on affiche si ce n'est pas id et si no_new est faux
+                    if ($field != 'id' and $no_new == false) {
                         $new .= "
     {{ form_row(form." . $field . ") }} \n";
 
