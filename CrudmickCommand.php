@@ -732,8 +732,8 @@ use Symfony\Component\Routing\Annotation\Route;
                             }
                         }
                     }
-                    //on ajoute dans $resOpt si on a un type fichier pour la conversion
-                    if (isset($val['ALIAS'])) if ($val['ALIAS'] == 'fichier') $resOpt[] = "'data_class' => null";
+                    //on ajoute dans $resOpt si on a un type fichier et required=false (pour pouvoir ne rien changer) pour la conversion
+                    if (isset($val['ALIAS'])) if ($val['ALIAS'] == 'fichier') $resOpt[] = "'data_class' => null,'required' => false";
 
                     //gestion des choices
                     if (isset($val['OPT']))
