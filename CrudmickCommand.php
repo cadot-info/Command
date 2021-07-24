@@ -385,7 +385,10 @@ last %}
             
         </tbody>
     </table>
-</div>";
+</div>
+<a class='btn btn-primary' data-toggle='tooltip' title='créer' href=\"{{ path('" . strtolower($entitie) . "_new') }}\">Ajouter un enregistrement</a>
+                       
+";
 
                 $index . "<a href=\"{{ path('" . $entitie . "_new') }}\" class=\"btn btn-primary\" type=\"button\">Ajouter</a>";
                 //si on est avec sortable 
@@ -723,26 +726,22 @@ use Symfony\Component\Routing\Annotation\Route;
                     //travail sur OPT
                     if (isset($val['OPT'])) {
                         foreach ($val['OPT'] as $opt) {
-                            //si on a une config par =>
-                            if (strpos($opt, '=>') !== false) {
-                                $tab = explode('=>', $opt);
-                                $resOpt[] = "'$tab[0]'=>$tab[1]";
-                            } else {
-                                $resOpt[] = "$opt";
+                            $tabopt = explode('=>', $opt);
+                            if ('choices' == $tabopt[0]) {
+                                //on ajoute choice dans les librairies à charger
+                                $TYPE = "ChoiceType::class";
+                                if (!in_array('Choice', $biblio_use)) {
+                                    $biblio_use[] = 'Choice';
+                                }
                             }
+                            //on ajoute les choices
+                            $resOpt[] = "'$tabopt[0]'=>" . substr($opt, strlen($tabopt[0]) + 2);
                         }
                     }
-                    //on ajoute dans $resOpt si on a un type fichier et required=false (pour pouvoir ne rien changer) pour la conversion
+
+                    //on ajoute dans $resOpt si on a un type fichier et required=false (pour pouvoir ne rien changer) pour l'envoie du formulaire
                     if (isset($val['ALIAS'])) if ($val['ALIAS'] == 'fichier') $resOpt[] = "'data_class' => null,'required' => false";
 
-                    //gestion des choices
-                    if (isset($val['OPT']))
-                        if (in_array('choices', $val['OPT']) !== false) {
-                            $TYPE = "ChoiceType::class";
-                            if (!in_array('Choice', $biblio_use)) {
-                                $biblio_use[] = 'Choice';
-                            }
-                        }
                     if ($field != 'id') {
                         $FT .= "\n->add('$field',$TYPE,['attr'=>[" . implode(',', $resAttr) . "]";
                         if ($resOpt) {
@@ -752,6 +751,7 @@ use Symfony\Component\Routing\Annotation\Route;
                     }
                 }
             } //fin de la boucle sur les fields
+            //dd();
             $finalft = '<?php
 namespace App\Form;
 
