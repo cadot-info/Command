@@ -227,7 +227,7 @@ last %}
                 //on boucle sur les fields
                 foreach ($res as $field => $val) {
                     // on ajoute les entête
-                    $entete = "<th>";
+                    $entete = "<th >";
                     //on prend le label ou le champ
                     if (isset($val['OPT']['label'])) {
                         $entete .= ucfirst(stripslashes(substr($val['OPT']['label'], 1, -1)));
@@ -329,7 +329,7 @@ last %}
                                     $ligne .= '<label class="exNomFichier">' . "{{" . $entitie . "." . $field . "}}</label>";
                             } else  //si c'est un autre ALIAS
                                 $ligne .= '{{' . $entitie . '.' . $field;
-                        } else  //si c'est un autre ALIAS
+                        } else  //si c'est pas un ALIAS
                             $ligne .= '{{' . $entitie . '.' . $field;
                     }
                     //gestion des filtres à ajouter
@@ -339,6 +339,11 @@ last %}
                         foreach ($val['TWIG'] as $twig) {
                             $filtres .= "|" . $twig;
                         }
+                    $timestamptable = ['createdAt', 'updatedAt'];
+                    //timestamptable
+                    if (in_array($field, $timestamptable))
+                        $filtres .= '|date("d/m à H:i", "Europe/Paris")';
+
                     //on vérifie s'il faut l'afficher (pas de no_index et pas du type relation
                     if (!isset($val['ATTR']['no_index']) && !$relationFind) {
                         $index .= $ligne . $filtres;
@@ -365,11 +370,19 @@ last %}
                     <form method='post' action=\"{{ path('" . strtolower($entitie) . "_delete', {'id':  $entitie.id }) }}\" 
                     onsubmit=\"return confirm('Etes-vous sûr de vouloir effacer cet item?');\">
                     <div class='row'>
+                    <div class='col-3'>
                         <input type=\"hidden\" name=\"_token\" value=\"{{ csrf_token('delete' ~  $entitie . id ) }}\">
                         <a class='btn btn-xs btn-primary' data-toggle='tooltip' title='Voir' href=\"{{ path('" . strtolower($entitie) . "_show', {'id':  $entitie.id }) }}\"><i class=\"icone fas fa-glasses \"></i></a>
+                        </div>
+                        <div class='col-3'>
                         <a class='btn btn-xs btn-secondary' data-toggle='tooltip' title='Editer' href=\"{{ path('" . strtolower($entitie) . "_edit', {'id':  $entitie.id }) }}\"><i class=\"icone fas fa-pen \"></i></a>
+                        </div>
+                        <div class='col-3'>
                         <a class='btn btn-xs btn-secondary' data-toggle='tooltip' title='Dupliquer' href=\"{{ path('" . strtolower($entitie) . "_copy',{'id':  $entitie.id }) }}\"><i class=\"icone fas fa-copy \"></i></a>
+                        </div>
+                        <div class='col-3'>
                         <button class=\"btn btn-xs btn-warning \"><i class=\"icone fas fa-trash \"></i></button>
+                        </div>
                     </div>
                         </form>";
                 //fermeture de la ligne
