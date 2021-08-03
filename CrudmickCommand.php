@@ -28,6 +28,7 @@ class CrudmickCommand extends Command
     {
         $io = new SymfonyStyle($input, $output);
         $entitie = ucfirst($input->getArgument('entitie'));
+        $timestamptable = ['createdAt', 'updatedAt', 'deletedAt'];
         //récupération des données de l'entitée
         if ($entitie) {
             if (!file_Exists('/app/src/Entity/' . $entitie . '.php'))
@@ -111,63 +112,75 @@ last %}
 <div class=\"col-12\">
     {{ form_start(form) }}
 ";
+
+
                 //on boucle sur les fields sauf id
                 foreach ($res as $field => $val) {
-                    $no_new = false;
-                    //on vérifie que ce champ doit être affiché
-                    if (isset($val['ATTR']))
-                        foreach ($val['ATTR'] as  $attr) {
-                            if ($attr == 'no_new') $no_new = true;
+                    //on supprime des fields les timestamptables
+                    if (\in_array($field, $timestamptable) === false) {
+                        $no_new = false;
+
+                        //on vérifie que ce champ doit être affiché
+                        if (isset($val['ATTR'])) {
+                            foreach ($val['ATTR'] as  $attr) {
+                                if ($attr == 'no_new') {
+                                    $no_new = true;
+                                }
+                            }
                         }
-                    //si no_new est vrai on dit qu'il est rendu
-                    if ($no_new)
-                        $new .= ' {% do form.' . $field . '.setRendered() %}';
-                    //on affiche si ce n'est pas id et si no_new est faux
-                    if ($field != 'id' and $no_new == false) {
-                        $new .= "
+                        //si no_new est vrai on dit qu'il est rendu
+                        if ($no_new) {
+                            $new .= ' {% do form.' . $field . '.setRendered() %}';
+                        }
+                        //on affiche si ce n'est pas id et si no_new est faux
+                        if ($field != 'id' and $no_new == false) {
+                            $new .= "
     {{ form_row(form." . $field . ") }} \n";
 
-                        //on boucle sur les fields(ALIAS,ATTR...)
-                        if (isset($val['ALIAS'])) {
-                            //on commence par ALIAS fichier
-                            if ($val['ALIAS'] == 'fichier') {
-                                $new .= '<div class="form-group">';
-                                //on boucle sur le type à afficher
-                                //on récupère l'attr
-                                if (isset($val['ATTR'])) {
-                                    $attr = explode('=>', $val['ATTR'][0]);
-                                    $type = $attr[0];
-                                } else $type = 'texte';
-                                switch ($type) {
-                                    case 'image':
-                                        $sizef = "";
-                                        $size = explode('x', $attr[1]);
-                                        if (trim($size[0]) == '0') {
-                                            $sizef = 'height=' . $size[1] . 'px';
-                                        } else {
-                                            $sizef = 'width=' . $size[0] . 'px';
-                                        }
-                                        $new .= "
+                            //on boucle sur les fields(ALIAS,ATTR...)
+                            if (isset($val['ALIAS'])) {
+                                //on commence par ALIAS fichier
+                                if ($val['ALIAS'] == 'fichier') {
+                                    $new .= '<div class="form-group">';
+                                    //on boucle sur le type à afficher
+                                    //on récupère l'attr
+                                    if (isset($val['ATTR'])) {
+                                        $attr = explode('=>', $val['ATTR'][0]);
+                                        $type = $attr[0];
+                                    } else {
+                                        $type = 'texte';
+                                    }
+                                    switch ($type) {
+                                        case 'image':
+                                            $sizef = "";
+                                            $size = explode('x', $attr[1]);
+                                            if (trim($size[0]) == '0') {
+                                                $sizef = 'height=' . $size[1] . 'px';
+                                            } else {
+                                                $sizef = 'width=' . $size[0] . 'px';
+                                            }
+                                            $new .= "
     {%if " . strToLower($entitie) . "." . $field . " %}
         <img " . $sizef . " src=\"{{voir('" . $field . "/'~" . strToLower($entitie) . "." . $field . ")}}\"> 
     {% endif %}";
-                                        break;
-                                    case 'icone':
-                                        $new .= "
+                                            break;
+                                        case 'icone':
+                                            $new .= "
     {%if " . strToLower($entitie) . " . " . $field . " %}
     <img src=\"{{getico('" . $field . "/'~" . strToLower($entitie) . "." . $field . ")}}\"> 
     {% endif %}";
-                                        break;
-                                    case 'texte':
-                                    default:
-                                        $new .= "
+                                            break;
+                                        case 'texte':
+                                        default:
+                                            $new .= "
     <label class='exNomFichier'>
         {{" . strToLower($entitie) . "." . $field . "}}
     </label>";
-                                        break;
-                                }
-                                $new .= "
+                                            break;
+                                    }
+                                    $new .= "
 </div>";
+                                }
                             }
                         }
                     }
@@ -339,10 +352,9 @@ last %}
                         foreach ($val['TWIG'] as $twig) {
                             $filtres .= "|" . $twig;
                         }
-                    $timestamptable = ['createdAt', 'updatedAt'];
                     //timestamptable
                     if (in_array($field, $timestamptable))
-                        $filtres .= '|date("d/m à H:i", "Europe/Paris")';
+                        $filtres .= ' is empty ? "" :' . $entitie . ' . ' . $field . '|date("d/m à H:i", "Europe/Paris")';
 
                     //on vérifie s'il faut l'afficher (pas de no_index et pas du type relation
                     if (!isset($val['ATTR']['no_index']) && !$relationFind) {
@@ -367,8 +379,7 @@ last %}
                 }
                 //ajout des actions
                 $index .= "<td>
-                    <form method='post' action=\"{{ path('" . strtolower($entitie) . "_delete', {'id':  $entitie.id }) }}\" 
-                    onsubmit=\"return confirm('Etes-vous sûr de vouloir effacer cet item?');\">
+                    <form method='post' action=\"{{ path('" . strtolower($entitie) . "_delete', {'id':  $entitie.id }) }}\" >
                     <div class='row'>
                     <div class='col-3'>
                         <input type=\"hidden\" name=\"_token\" value=\"{{ csrf_token('delete' ~  $entitie . id ) }}\">
@@ -380,11 +391,31 @@ last %}
                         <div class='col-3'>
                         <a class='btn btn-xs btn-secondary' data-toggle='tooltip' title='Dupliquer' href=\"{{ path('" . strtolower($entitie) . "_copy',{'id':  $entitie.id }) }}\"><i class=\"icone fas fa-copy \"></i></a>
                         </div>
-                        <div class='col-3'>
-                        <button class=\"btn btn-xs btn-warning \"><i class=\"icone fas fa-trash \"></i></button>
-                        </div>
+                        {% if action=='deleted' %}
+										<div class='col-3'>
+											<button class=\"btn btn-xs btn-warning \" title=\"restaurer\" name=\"delete_restore\">
+												<i class=\"icone fas fa-trash-restore \"></i>
+											</button>
+
+											<button class=\"btn btn-xs btn-danger \" title=\"supprimer définitivement\" onclick=\"return confirm('Etes-vous sûr de vouloir effacer cet item?');\" name=\"delete_delete\">
+
+												<i class=\"icone fas fa-trash \"></i>
+											</button>
+										</div>
+
+									{% else %}
+										<div class='col-3'>
+											<button class=\"btn btn-xs btn-warning \" title=\"mettre dans la corbeille\" name=\"delete_softdelete\">
+												<i class=\"icone fas fa-trash \"></i>
+											</button>
+										</div>
+
+									{% endif %}
                     </div>
-                        </form>";
+                        </form>
+                        </td>
+                        </tr>
+                        ";
                 //fermeture de la ligne
                 //$index .= "</tr>";
                 //fin pour cacher superadmin
@@ -399,7 +430,20 @@ last %}
         </tbody>
     </table>
 </div>
-<a class='btn btn-primary' data-toggle='tooltip' title='créer' href=\"{{ path('" . strtolower($entitie) . "_new') }}\">Ajouter un enregistrement</a>
+<div class=\"row\">
+		<div class=\"col\">
+			<a class='btn btn-primary' data-toggle='tooltip' title='ajouter enregistrement' href=\"{{ path('" . strtolower($entitie) . "_new') }}\">Ajouter un enregistrement</a>
+		</div>
+		{% if action=='deleted' %}
+			<div class=\"col-auto\">
+				<a class='text-muted ' href=\"{{ path('" . strtolower($entitie) . "_index') }}\">voir les enregistrements</a>
+			</div>
+		{% else %}
+			<div class=\"col-auto\">
+				<a class='text-muted ' href=\"{{ path('" . strtolower($entitie) . "_deleted') }}\">voir les enregistrements supprimés</a>
+			</div>
+		{% endif %}
+	</div>
                        
 ";
 
@@ -515,8 +559,9 @@ last %}
                             } else {   //si c'est un autre ALIAS
                                 $ligne .= '{{' . strtolower($entitie) . '.' . $field;
                             }
-                        } else {   //si c'est un autre ALIAS
-                            $ligne .= '{{' . strtolower($entitie) . '.' . $field;
+                        } else {   //si c'est pas un ALIAS
+                            if (in_array($field, $timestamptable))
+                                $ligne .= '{{' . strtolower($entitie) . '.' . $field;
                         }
                         //gestion des filtres à ajouter
                         //on a des filtres
@@ -526,6 +571,10 @@ last %}
                                 $filtres .= "|" . $twig;
                             }
                         }
+                        //timestamptable
+                        if (in_array($field, $timestamptable))
+                            $filtres .= ' is empty ? "" :' . $entitie . ' . ' . $field . '|date("d/m à H:i", "Europe/Paris")';
+
                         //on vérifie s'il faut l'afficher (pas de no_index et pas du type relation
                         if (!isset($val['ATTR']['no_show'])) {
                             $show .= $ligne . $filtres;
@@ -571,6 +620,8 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
+use Doctrine\ORM\EntityManagerInterface;
+use DateTimeImmutable;
 
 /**
  * @Route("' . $res['id']['PARTIE'] . '/' . strTolower($entitie) . '")
@@ -582,9 +633,23 @@ use Symfony\Component\Routing\Annotation\Route;
     public function index(' . $entitie . 'Repository $' . strtolower($entitie) . 'Repository): Response
     {
         return $this->render(\'' . strtolower($entitie) . '/index.html.twig\', [
-            \'' . strTolower($entitie) . 's\' => $' . strTolower($entitie) . 'Repository->findAll(),
+            \'' . strTolower($entitie) . 's\' => $' . strTolower($entitie) . 'Repository->findBy([\'deletedAt\' => null]),
         ]);
     }
+    /**
+     * @Route("/deleted", name="' . strTolower($entitie) . '_deleted", methods={"GET"})
+     */
+    public function deleted(' . $entitie . 'Repository $' . strtolower($entitie) . 'Repository, EntityManagerInterface $em): Response
+    {
+        $tab' . $entitie . 's = [];
+        foreach ($' . \strtolower($entitie) . 'Repository->findAll() as $' . \strtolower($entitie) . ') {
+            if ($' . \strtolower($entitie) . '->getDeletedAt() != null) $tab' . $entitie . 's[] = $' . \strtolower($entitie) . ';
+        }
+        return $this->render(\'' . strtolower($entitie) . '/index.html.twig\', [
+            \'' . strTolower($entitie) . 's\' =>$tab' . $entitie . 's 
+        ]);
+    }
+
       /**
      * @Route("/new", name="' . strTolower($entitie) . '_new", methods={"GET","POST"})
      */
@@ -667,14 +732,22 @@ use Symfony\Component\Routing\Annotation\Route;
     {
         if ($this->isCsrfTokenValid(\'delete\'.$' . strTolower($entitie) . '->getId(), $request->request->get(\'_token\'))) {
             $entityManager = $this->getDoctrine()->getManager();
-            $entityManager->remove($' . strTolower($entitie) . ');
+              if ($request->request->has(\'delete_delete\'))
+                    $entityManager->remove($' . strTolower($entitie) . ');
+                    if ($request->request->has(\'delete_restore\'))
+                    $' . strTolower($entitie) . '->setDeletedAt(null);
+                    if ($request->request->has(\'delete_softdelete\'))
+                    $' . strTolower($entitie) . '->setDeletedAt(new DateTimeImmutable(\'now\'));
             $entityManager->flush();
         }
-
-        return $this->redirectToRoute(\'' . strTolower($entitie) . '_index\');
+ if ($request->request->has(\'delete_softdelete\'))
+                  return $this->redirectToRoute(\'' . strTolower($entitie) . '_index\');
+                else
+                  return $this->redirectToRoute(\'' . strTolower($entitie) . '_deleted\');
     }
 }
     ';
+
                 if ($input->getOption('origin')) {
                     $dir = "/app/old/" .  date('Y-m-d_H-i-s') . '/' . $entitie;
                     @rename('/app/src/Controller/' . $entitie . 'Controller/' . $entitie . 'Controller.php', $dir);
@@ -690,6 +763,11 @@ use Symfony\Component\Routing\Annotation\Route;
                 $collection_use = [];
                 $biblio_use = [];
                 $FT = '';
+                //on supprime des fields les timestamptables
+                unset($res['updatedAt']);
+                unset($res['createdAt']);
+                unset($res['deletedAt']);
+
                 //on boucle sur les fields
                 foreach ($res as $field => $val) {
 
