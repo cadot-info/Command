@@ -181,6 +181,10 @@ last %}
                                     $new .= "
 </div>";
                                 }
+                                //pour editorjs
+                                if (
+                                    $val['ALIAS'] == 'editorjs'
+                                ) $new .= "<div id='editorjs'></div>";
                             }
                         }
                     }
@@ -232,7 +236,7 @@ last %}
                 }
                 //ajout de la table en responsive
                 $index .= "
-<div class='table-responsive'>
+<div class=''>
     <table class='table'>
         <thead>
             <tr>";
@@ -359,9 +363,9 @@ last %}
                     //on vérifie s'il faut l'afficher (pas de no_index et pas du type relation
                     if (!isset($val['ATTR']['no_index']) && !$relationFind) {
                         $index .= $ligne . $filtres;
-                        //pour le type ckeditor on ajoute un filtre
+                        //pour le type ckeditor ou editorjs on ajoute un filtre
                         if (isset($val['ALIAS']))
-                            if ($val['ALIAS'] == 'ckeditor')
+                            if ($val['ALIAS'] == 'ckeditor' or $val['ALIAS'] == 'editorjs')
                                 $index .= '|striptags|u.truncate(200, "...", false)|cleanhtml';
                         //on ferme pour tous les types sauf fichier
                         if (isset($val['ALIAS'])) {
@@ -580,7 +584,7 @@ last %}
                             $show .= $ligne . $filtres;
                             //pour le type ckeditor on ajoute un filtre
                             if (isset($val['ALIAS']))
-                                if ($val['ALIAS'] == 'ckeditor')
+                                if ($val['ALIAS'] == 'ckeditor' or $val['ALIAS'] == 'editorjs')
                                     $show .= '|cleanhtml';
                             //on ferme pour tous les types sauf fichier
                             if (isset($val['ALIAS'])) {
@@ -784,13 +788,15 @@ use DateTimeImmutable;
                     $resAttr = array(); //stock des attrs
                     $resOpt = array(); //stock des opts
                     //attribut unique pour le mask qui donne aussi le type
-                    $tab_ALIAS = ['fichier' => 'file', 'hidden' => 'hidden', 'radio' => 'radio', 'date' => 'date', 'password' => 'password', 'centimetre' => 'CentiMetre', 'metre' => 'metre', 'prix' => 'money', 'ckeditor' => 'CKEditor',  'texte_propre' => 'text', 'email' => 'email', 'color' => 'color', 'phonefr' => 'tel', 'code_postal' => 'text', 'km' => 'number', 'adeli' => 'number'];
-                    if (isset($val['ALIAS']))
+                    $tab_ALIAS = ['fichier' => 'file', 'hidden' => 'hidden', 'radio' => 'radio', 'date' => 'date', 'password' => 'password', 'centimetre' => 'CentiMetre', 'metre' => 'metre', 'prix' => 'money', 'ckeditor' => 'CKEditor', 'editorjs' => 'hidden',  'texte_propre' => 'text', 'email' => 'email', 'color' => 'color', 'phonefr' => 'tel', 'code_postal' => 'text', 'km' => 'number', 'adeli' => 'number'];
+                    if (isset($val['ALIAS'])) {
                         //si on connait cet alias on met son type dans add et on ajoute le use et on ajoute l'alias dans les attr
                         if (array_key_exists($val['ALIAS'], $tab_ALIAS) !== false) {
                             $TYPE = ucfirst($tab_ALIAS[$val['ALIAS']]) . "Type::class";
                             $resAttr[] = "'data-inputmask' => \"'alias': '" . $val['ALIAS'] . "'\"";
-                            if ($tab_ALIAS[$val['ALIAS']] == 'money') $resAttr[] = "'divisor' => 100";
+                            if ($tab_ALIAS[$val['ALIAS']] == 'money') {
+                                $resAttr[] = "'divisor' => 100";
+                            }
                             //on ajoute le type dans les use si pas existant
                             if (!in_array(ucfirst($tab_ALIAS[$val['ALIAS']]), $biblio_use)) {
                                 $biblio_use[] = ucfirst($tab_ALIAS[$val['ALIAS']]);
@@ -799,6 +805,9 @@ use DateTimeImmutable;
                             //sinon on met juste le type dans add
                             $TYPE = $field;
                         }
+                        //pour editorjs
+                        if ($val['ALIAS'] == 'editorjs') $resAttr[] = "'class'=>'editorjs'";
+                    }
 
 
                     //travail sur ATTR
