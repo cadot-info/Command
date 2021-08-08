@@ -189,7 +189,7 @@ last %}
                                 if (
                                     $val['ALIAS'] == 'autocomplete'
                                 )
-                                    $new .= '<input type="hidden" id="autocomplete' . ucfirst($field) . '" value="{{autocomplete' . ucfirst($field) . '}}">';
+                                    $new .= '<input type="hidden" class="autocomplete" data-id="' . strtolower($entitie) . '_' . $field . '" value="{{autocomplete' . ucfirst($field) . '}}">';
                             }
                         }
                     }
