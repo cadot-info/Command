@@ -1,7 +1,11 @@
 <?php
 
+
+
+
 namespace App\CMCommand;
 
+use Twig\Environment;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Style\SymfonyStyle;
@@ -9,12 +13,46 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
+/**
+ * CrudmickCommand
+He generate beautify crud for symfony
+The options set in entity only for configurate twig, controller and type, it's magic!
+This idea permit modify easily many files for the twig result
 
+The option minimum is:
+- EXTEND for the twig extend (example: EXTEND=admin/index.html.twig get extend for the twig new, show, delete)
+- PARTIE for firewall (example: PARTIE=admin get add admin in route for the controller )
 
+The fields:
+- file: for upload by ajax a simple file 
+    - ATTR= for many show, template_... (example: new_text, index_picture...)
+        - text: for show text
+        - picture: widthxheight, exaple (autox100, 100x300 ...)
+        
+ 
+ */
 class CrudmickCommand extends Command
 {
     protected static $defaultName = 'crudmick:generateCrud';
     protected static $defaultDescription = 'Generate beautify Crud from doctrine entity';
+    protected $path = 'src/CMService/tpl/'; //path of tpl
+    private $E;
+    private $timestamptable;
+    private $res;
+    private $r;
+    private $input;
+
+
+    // Create a private variable to store the twig environment
+    private $twig;
+
+    public function __construct(Environment $twig)
+    {
+        // Inject it in the constructor and update the value on the class
+        $this->twig = $twig;
+
+        parent::__construct();
+    }
 
     protected function configure(): void
     {
@@ -26,213 +64,46 @@ class CrudmickCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
+        //var global
         $io = new SymfonyStyle($input, $output);
-        $entitie = ucfirst($input->getArgument('entitie'));
+        $E = ucfirst($input->getArgument('entitie'));
         $timestamptable = ['createdAt', 'updatedAt', 'deletedAt'];
-        //récupération des données de l'entitée
-        if ($entitie) {
-            if (!file_Exists('/app/src/Entity/' . $entitie . '.php'))
+        $this->input = $input;
+        $this->E = $E;
+        $this->timestamptable = $timestamptable;
+
+        //data of entity bu reflection class
+        if ($E) {
+            if (!file_Exists('/app/src/Entity/' . $E . '.php'))
                 $io->error("This entity don't exist in /app/src/Entity");
             else {
-                $class = 'App\Entity\\' . $entitie;
-                $r = new \ReflectionClass(new $class);
-                //tableau de recherche
-                $aSupprimer = array('/**', '*/');
-                $mCrud = array('pour éviter retour false', 'ATTR', 'PARTIE', 'EXTEND', 'OPT', 'ALIAS', 'OPT', 'TPL', 'TWIG');
-                $FUnique = array('ALIAS', 'EXTEND', 'PARTIE');
-                $res = array(); // retour de la recherche
-                foreach ($r->getProperties() as $property) {
-                    $name = $property->getName();
-                    $docs = (explode("\n", $property->getDocComment()));
-                    //on liste les docs
-                    foreach ($docs as $doc) {
-                        //suppression des balises à supprimer
-                        if (!in_array(trim($doc), $aSupprimer)) {
-                            //suppression des espaces inutiles
-                            $docClean = trim($doc);
-                            if (substr($docClean, 0, strlen('* '))) {
-                                $docClean = substr($docClean, strlen('* '));
-                            }
-                            //on regarde si c'est un champ crudmick
-                            $posEgale = strpos($docClean, '=');
-                            if ($posEgale !== false) {
-                                if ($type = array_search(substr($docClean, 0, $posEgale), $mCrud)) {
-                                    //si ce field est unique
-                                    if (in_array($mCrud[$type], $FUnique) !== false) {
-                                        $res[$name][$mCrud[$type]] = substr($docClean, $posEgale + 1);
-                                    } else { //si ce field peux prendre plusierus valeurs
-                                        $res[$name][$mCrud[$type]][] = substr($docClean, $posEgale + 1);
-                                    }
-                                } else { //si il ya un = mais que ce n'est pas un mot réservé de crudmick
-                                    $res[$name]['AUTRE'][] = $docClean;
-                                }
-                            } else {
-                                //sinon on l'ajoute simplement
-                                $res[$name]['AUTRE'][] = $docClean;
-                            }
-                        }
-                    }
-                }
-
-                //vérification des champs obligatoires
-                if (!isset($res['id']['EXTEND'])) {
-                    $io->error('Please get a EXTEND for id (example: EXTEND=admin/admin.html.twig)');
+                $this->getEffects(); // $res has many options (attr,opt,twig ... autre) of entity necessary for create
+                //minimum options for crudmick
+                if (!isset($this->res['id']['EXTEND'])) {
+                    $io->error('Please get a EXTEND for id (example: EXTEND=admin/admin.html.twig, used bu twigs)');
                     exit();
                 }
-                if (!isset($res['id']['PARTIE'])) {
-                    $io->error('Please get a PARTIE for id (example: PARTIE=admin)');
+                if (!isset($this->res['id']['PARTIE'])) {
+                    $io->error('Please get a PARTIE for id (example: PARTIE=admin, used by controller)');
                     exit();
                 }
 
-                /* ------------------------------------------------------------------------------------------------------------------ */
-                /*                                                                                               CREATION DE NEW/EDIT */
-                /* ------------------------------------------------------------------------------------------------------------------ */
-                $new = '{% extends \'' . $res['id']['EXTEND'] . '\' %}';
-                $new .= "
-{% set route = path(app.request.attributes.get('_route'), app.request.attributes.get('_route_params')) %}
-{% set action = path(app.request.attributes.get('_route'), app.request.attributes.get('_route_params')) | split('/') |
-last %}
+                $this->createNew();
 
-{% block title %}
-    {% if action=='new'  %}Création
-        {% elseif action=='copy' %}Duplication 
-        {% elseif action=='edit' %}Edition
-    {% endif %} " . $entitie . "
-{% endblock %}
-
-{% block body %}
-
-<div class=\"col-12 text-center\">
-    <h1>{% if action=='new'  %}Créer {% elseif action=='copy' %}Dupliquer {% elseif action=='edit' %}Editer{% endif %} " . $entitie . "
-        <span class=\"text-right\">
-            <h5>taille maxi d'envoie:{{upload_max()}} Mo</h5>
-        </span>
-    </h1>
-</div>
-<div class=\"col-12\">
-    {{ form_start(form) }}
-";
-
-
-                //on boucle sur les fields sauf id
-                foreach ($res as $field => $val) {
-                    //on supprime des fields les timestamptables
-                    if (\in_array($field, $timestamptable) === false) {
-                        $no_new = false;
-
-                        //on vérifie que ce champ doit être affiché
-                        if (isset($val['ATTR'])) {
-                            foreach ($val['ATTR'] as  $attr) {
-                                if ($attr == 'no_new') {
-                                    $no_new = true;
-                                }
-                            }
-                        }
-                        //si no_new est vrai on dit qu'il est rendu
-                        if ($no_new) {
-                            $new .= ' {% do form.' . $field . '.setRendered() %}';
-                        }
-                        //on affiche si ce n'est pas id et si no_new est faux
-                        if ($field != 'id' and $no_new == false) {
-                            $new .= "
-    {{ form_row(form." . $field . ") }} \n";
-
-                            //on boucle sur les fields(ALIAS,ATTR...)
-                            if (isset($val['ALIAS'])) {
-                                //on commence par ALIAS fichier
-                                if ($val['ALIAS'] == 'fichier') {
-                                    $new .= '<div class="form-group">';
-                                    //on boucle sur le type à afficher
-                                    //on récupère l'attr
-                                    if (isset($val['ATTR'])) {
-                                        $attr = explode('=>', $val['ATTR'][0]);
-                                        $type = $attr[0];
-                                    } else {
-                                        $type = 'texte';
-                                    }
-                                    switch ($type) {
-                                        case 'image':
-                                            $sizef = "";
-                                            $size = explode('x', $attr[1]);
-                                            if (trim($size[0]) == '0') {
-                                                $sizef = 'height=' . $size[1] . 'px';
-                                            } else {
-                                                $sizef = 'width=' . $size[0] . 'px';
-                                            }
-                                            $new .= "
-    {%if " . strToLower($entitie) . "." . $field . " %}
-        <img " . $sizef . " src=\"{{voir('" . $field . "/'~" . strToLower($entitie) . "." . $field . ")}}\"> 
-    {% endif %}";
-                                            break;
-                                        case 'icone':
-                                            $new .= "
-    {%if " . strToLower($entitie) . " . " . $field . " %}
-    <img src=\"{{getico('" . $field . "/'~" . strToLower($entitie) . "." . $field . ")}}\"> 
-    {% endif %}";
-                                            break;
-                                        case 'texte':
-                                        default:
-                                            $new .= "
-    <label class='exNomFichier'>
-        {{" . strToLower($entitie) . "." . $field . "}}
-    </label>";
-                                            break;
-                                    }
-                                    $new .= "
-</div>";
-                                }
-                                //pour editorjs
-                                if (
-                                    $val['ALIAS'] == 'editorjs'
-                                ) $new .= "<div id='editorjs'></div>";
-                                //pour autocomplete.js
-                                if (
-                                    $val['ALIAS'] == 'autocomplete'
-                                )
-                                    $new .= '<input type="hidden" class="autocomplete" data-id="' . strtolower($entitie) . '_' . $field . '" value="{{autocomplete' . ucfirst($field) . '}}">';
-                            }
-                        }
-                    }
-                }
-                $new .= '
- <button class="btn btn-primary" type="submit">
-    {% if action==\'new\'  %}Créer 
-    {% else %}Mettre à jour
-    {% endif %}
- </button>
-<a href="{{ path(\'' . strtolower($entitie) . '_index\') }}">
-    <button class="btn btn-secondary" type="button">Revenir à la liste</button>
-</a>
-<input type="hidden" id="token" value="{{ csrf_token(\'upload\')}}" />
-{{ form_end(form) }}
-</div>
-{% endblock %}
-                    ';
-
-
-                if ($input->getOption('origin')) {
-                    @mkdir('/app/templates/' . strTolower($entitie));
-                    $dir = "/app/old/" .  date('Y-m-d_H-i-s') . '/' . $entitie;
-                    @mkdir($dir);
-                    @rename('/app/templates/' . strTolower($entitie) . '/new.html.twig', $dir);
-                    file_put_contents('/app/templates/' . strTolower($entitie) . '/new.html.twig', $new);
-                } else {
-                    @mkdir('/app/crudmick/crud');
-                    file_put_contents('/app/crudmick/crud/' . $entitie . '_new.html.twig', $new);
-                }
+                $res = $this->res;
                 /* ------------------------------------------------------------------------------------------------------------------ */
                 /*                                                                                                  CREATION DE INDEX */
                 /* ------------------------------------------------------------------------------------------------------------------ */
                 $index = '{% extends \'' . $res['id']['EXTEND'] . '\' %}';
                 $index .= '
-{% block title %}  ' . $entitie . ' 
+{% block title %}  ' . $E . ' 
     {% endblock %}
 {% block body %} 
-<h1> ' . $entitie . ' </h1>';
+<h1> ' . $E . ' </h1>';
                 //on installe sortable si demandé
                 if (isset($res['id']['ATTR'])) {
                     if (array_search('sortable', $res['id']['ATTR']) !== false) {
-                        $index .= "{% set list=findOneBy('sortable',{'entite':'" . '.$entitie.' . "'}) %}
+                        $index .= "{% set list=findOneBy('sortable',{'entite':'" . '.$E.' . "'}) %}
 {% if list != null %}
 <input type=\"hidden\" id=\"ex_sortable\" value=\"{{list.Ordre}}\">
 {% endif %}
@@ -282,11 +153,11 @@ last %}
 </thead>
 <tbody>';
                 $index .= '
-{% for  ' . $entitie . '  in  ' . strtolower($entitie) . 's  %}
-    <tr data-num="{{' . $entitie . '.id }}">';
+{% for  ' . $E . '  in  ' . strtolower($E) . 's  %}
+    <tr data-num="{{' . $E . '.id }}">';
                 //pour ne pas voir superadmin
                 //                 $index .= "
-                // {% if 'ROLE_SUPER_ADMIN' not in " . strtolower($entitie) . ".roles %}";
+                // {% if 'ROLE_SUPER_ADMIN' not in " . strtolower($E) . ".roles %}";
                 $relations = ['onetoone', 'manytoone', 'onetomany', 'manytomany'];
                 foreach ($res as $field => $val) {
                     //gestion des classes spéciales
@@ -300,7 +171,7 @@ last %}
                     }
                     //si on a une relation
                     if ($relationFind) {
-                        $ligne = "\n<td>{% for item in  " . $entitie . "." . $field . " %}{{ item }},{% endfor %}";
+                        $ligne = "\n<td>{% for item in  " . $E . "." . $field . " %}{{ item }},{% endfor %}";
                     }
                     //si on à un no_index
                     if (isset($val['ATTR']['no_index'])) {
@@ -323,7 +194,7 @@ last %}
                         $ligne .= "
                     {% set res=[] %}
                     {% for key,option in options %}
-                    {% if option in " . $entitie . "." . $field . " %}
+                    {% if option in " . $E . "." . $field . " %}
                     {% set res=res|merge([key]) %}
                     {% endif %}
                     {% endfor %}
@@ -348,17 +219,17 @@ last %}
                                     }
                                 //si on est du type image ou icone
                                 if ($typeFichier !== 'texte') { //icone ou image pour ne pas avoir une grande taille
-                                    $ligne .= "{%if " . $entitie . "." . $field . " %}" .
-                                        "<a class='bigpicture' " . $attrs . " href=\"{{asset('/uploads/" . $field . "/'~" . $entitie . "." . $field . ")}}\">
-                                        <img src=\"{{getico('" . $field . "/'~" . $entitie . "." . $field . ")}}\"></a> {% endif %}";
+                                    $ligne .= "{%if " . $E . "." . $field . " %}" .
+                                        "<a class='bigpicture' " . $attrs . " href=\"{{asset('/uploads/" . $field . "/'~" . $E . "." . $field . ")}}\">
+                                        <img src=\"{{getico('" . $field . "/'~" . $E . "." . $field . ")}}\"></a> {% endif %}";
                                 } else
-                                    $ligne .= "{%if " . $entitie . "." . $field . " %}" .
-                                        "<a class='bigpicture' " . $attrs . " href=\"{{asset('/uploads/" . $field . "/'~" . $entitie . "." . $field . ")}}\">" .
-                                        '<label class="exNomFichier">' . "{{" . $entitie . "." . $field . "}}</label></a> {% endif %}";
+                                    $ligne .= "{%if " . $E . "." . $field . " %}" .
+                                        "<a class='bigpicture' " . $attrs . " href=\"{{asset('/uploads/" . $field . "/'~" . $E . "." . $field . ")}}\">" .
+                                        '<label class="exNomFichier">' . "{{" . $E . "." . $field . "}}</label></a> {% endif %}";
                             } else  //si c'est un autre ALIAS
-                                $ligne .= '{{' . $entitie . '.' . $field;
+                                $ligne .= '{{' . $E . '.' . $field;
                         } else  //si c'est pas un ALIAS
-                            $ligne .= '{{' . $entitie . '.' . $field;
+                            $ligne .= '{{' . $E . '.' . $field;
                     }
                     //gestion des filtres à ajouter
                     //on a des filtres
@@ -369,7 +240,7 @@ last %}
                         }
                     //timestamptable
                     if (in_array($field, $timestamptable))
-                        $filtres .= ' is empty ? "" :' . $entitie . ' . ' . $field . '|date("d/m à H:i", "Europe/Paris")';
+                        $filtres .= ' is empty ? "" :' . $E . ' . ' . $field . '|date("d/m à H:i", "Europe/Paris")';
 
                     //on vérifie s'il faut l'afficher (pas de no_index et pas du type relation
                     if (!isset($val['ATTR']['no_index']) && !$relationFind) {
@@ -394,17 +265,17 @@ last %}
                 }
                 //ajout des actions
                 $index .= "<td>
-                    <form method='post' action=\"{{ path('" . strtolower($entitie) . "_delete', {'id':  $entitie.id }) }}\" >
+                    <form method='post' action=\"{{ path('" . strtolower($E) . "_delete', {'id':  $E.id }) }}\" >
                     <div class='row'>
                     <div class='col-3'>
-                        <input type=\"hidden\" name=\"_token\" value=\"{{ csrf_token('delete' ~  $entitie . id ) }}\">
-                        <a class='btn btn-xs btn-primary' data-toggle='tooltip' title='Voir' href=\"{{ path('" . strtolower($entitie) . "_show', {'id':  $entitie.id }) }}\"><i class=\"icone fas fa-glasses \"></i></a>
+                        <input type=\"hidden\" name=\"_token\" value=\"{{ csrf_token('delete' ~  $E . id ) }}\">
+                        <a class='btn btn-xs btn-primary' data-toggle='tooltip' title='Voir' href=\"{{ path('" . strtolower($E) . "_show', {'id':  $E.id }) }}\"><i class=\"icone fas fa-glasses \"></i></a>
                         </div>
                         <div class='col-3'>
-                        <a class='btn btn-xs btn-secondary' data-toggle='tooltip' title='Editer' href=\"{{ path('" . strtolower($entitie) . "_edit', {'id':  $entitie.id }) }}\"><i class=\"icone fas fa-pen \"></i></a>
+                        <a class='btn btn-xs btn-secondary' data-toggle='tooltip' title='Editer' href=\"{{ path('" . strtolower($E) . "_edit', {'id':  $E.id }) }}\"><i class=\"icone fas fa-pen \"></i></a>
                         </div>
                         <div class='col-3'>
-                        <a class='btn btn-xs btn-secondary' data-toggle='tooltip' title='Dupliquer' href=\"{{ path('" . strtolower($entitie) . "_copy',{'id':  $entitie.id }) }}\"><i class=\"icone fas fa-copy \"></i></a>
+                        <a class='btn btn-xs btn-secondary' data-toggle='tooltip' title='Dupliquer' href=\"{{ path('" . strtolower($E) . "_copy',{'id':  $E.id }) }}\"><i class=\"icone fas fa-copy \"></i></a>
                         </div>
                         {% if action=='deleted' %}
 										<div class='col-3'>
@@ -447,45 +318,45 @@ last %}
 </div>
 <div class=\"row\">
 		<div class=\"col\">
-			<a class='btn btn-primary' data-toggle='tooltip' title='ajouter enregistrement' href=\"{{ path('" . strtolower($entitie) . "_new') }}\">Ajouter un enregistrement</a>
+			<a class='btn btn-primary' data-toggle='tooltip' title='ajouter enregistrement' href=\"{{ path('" . strtolower($E) . "_new') }}\">Ajouter un enregistrement</a>
 		</div>
 		{% if action=='deleted' %}
 			<div class=\"col-auto\">
-				<a class='text-muted ' href=\"{{ path('" . strtolower($entitie) . "_index') }}\">voir les enregistrements</a>
+				<a class='text-muted ' href=\"{{ path('" . strtolower($E) . "_index') }}\">voir les enregistrements</a>
 			</div>
 		{% else %}
 			<div class=\"col-auto\">
-				<a class='text-muted ' href=\"{{ path('" . strtolower($entitie) . "_deleted') }}\">voir les enregistrements supprimés</a>
+				<a class='text-muted ' href=\"{{ path('" . strtolower($E) . "_deleted') }}\">voir les enregistrements supprimés</a>
 			</div>
 		{% endif %}
 	</div>
                        
 ";
 
-                $index . "<a href=\"{{ path('" . $entitie . "_new') }}\" class=\"btn btn-primary\" type=\"button\">Ajouter</a>";
+                $index . "<a href=\"{{ path('" . $E . "_new') }}\" class=\"btn btn-primary\" type=\"button\">Ajouter</a>";
                 //si on est avec sortable 
                 if (isset(($res['id'])['ATTR']['sortable']))
-                    $index .= "<input entite=\"" . $entitie . "\"  id=\"save_sortable\" type=\"hidden\">";
+                    $index .= "<input entite=\"" . $E . "\"  id=\"save_sortable\" type=\"hidden\">";
                 //fermeture du block
                 $index .= "{% endblock %}";
                 if ($input->getOption('origin')) {
-                    $dir = "/app/old/" .  date('Y-m-d_H-i-s') . '/' . $entitie;
-                    @rename('/app/templates/' . strTolower($entitie) . '/index.html.twig', $dir);
-                    file_put_contents('/app/templates/' . strTolower($entitie) . '/index.html.twig', $index);
+                    $dir = "/app/old/" .  date('Y-m-d_H-i-s') . '/' . $E;
+                    @rename('/app/templates/' . strTolower($E) . '/index.html.twig', $dir);
+                    file_put_contents('/app/templates/' . strTolower($E) . '/index.html.twig', $index);
                 } else {
-                    file_put_contents('/app/crudmick/crud/' . $entitie . '_index.html.twig', $index);
+                    file_put_contents('/app/crudmick/crud/' . $E . '_index.html.twig', $index);
                 }
 
                 //creation de show
                 $show = "{% extends '"  . $res['id']['EXTEND'] . "' %}";
                 $show .= '
-{% block title %}  ' . $entitie . ' 
+{% block title %}  ' . $E . ' 
     {% endblock %}
 {% block body %} 
-<h1> ' . $entitie . ' </h1>';
+<h1> ' . $E . ' </h1>';
                 //pour ne pas voir superadmin
                 //                 $show .= "
-                // {% if 'ROLE_SUPER_ADMIN' not in " . strtolower($entitie) . ".roles %}";
+                // {% if 'ROLE_SUPER_ADMIN' not in " . strtolower($E) . ".roles %}";
                 $show .= '
 <div class="col-12">
 <ul class="list-group">';
@@ -504,7 +375,7 @@ last %}
                     }
                     //si on a une relation
                     if ($relationFind) {
-                        $ligne = "\n<td>{{" . strtolower($entitie) . "." . $field . "|json_encode";
+                        $ligne = "\n<td>{{" . strtolower($E) . "." . $field . "|json_encode";
                     }
                     //si on à un no_show
                     if (isset($val['ATTR']['no_show'])) {
@@ -527,7 +398,7 @@ last %}
                         $ligne .= "
                     {% set res=[] %}
                     {% for key,option in options %}
-                    {% if option in " . strtolower($entitie) . "." . $field . " %}
+                    {% if option in " . strtolower($E) . "." . $field . " %}
                     {% set res=res|merge([key]) %}
                     {% endif %}
                     {% endfor %}
@@ -560,24 +431,24 @@ last %}
                                     } else {
                                         $sizef = 'width=' . $size[0] . 'px';
                                     }
-                                    $ligne .= "{%if " . strtolower($entitie) . "." . $field . " %}" .
-                                        "<a data-toggle='popover-hover' data-original-title=\"\" title=\"\" data-img=\"{{voir('" . $field . "/'~" . strtolower($entitie) . "." . $field . ")}}\"><img " . $sizef . " src=\"{{voir('" . $field . "/'~" . strtolower($entitie) . "." . $field . ")}}\"></a> {% endif %}";
+                                    $ligne .= "{%if " . strtolower($E) . "." . $field . " %}" .
+                                        "<a data-toggle='popover-hover' data-original-title=\"\" title=\"\" data-img=\"{{voir('" . $field . "/'~" . strtolower($E) . "." . $field . ")}}\"><img " . $sizef . " src=\"{{voir('" . $field . "/'~" . strtolower($E) . "." . $field . ")}}\"></a> {% endif %}";
                                 }
                                 //type icone
                                 if ($typeFichier == 'icone') {
-                                    $ligne .= "{%if " . strtolower($entitie) . " . " . $field . " %}" .
-                                        "<a data-toggle='popover-hover' data-original-title=\"\" title=\"\" data-img=\"{{voir('" . $field . "/'~" . strtolower($entitie) . "." . $field . ")}}\"><img src=\"{{getico('" . $field . "/'~" . strtolower($entitie) . "." . $field . ")}}\"></a> {% endif %}";
+                                    $ligne .= "{%if " . strtolower($E) . " . " . $field . " %}" .
+                                        "<a data-toggle='popover-hover' data-original-title=\"\" title=\"\" data-img=\"{{voir('" . $field . "/'~" . strtolower($E) . "." . $field . ")}}\"><img src=\"{{getico('" . $field . "/'~" . strtolower($E) . "." . $field . ")}}\"></a> {% endif %}";
                                 }
                                 //type texte
                                 if ($typeFichier == 'texte') {
-                                    $ligne .= '<label class="exNomFichier">' . "{{" . strtolower($entitie) . "." . $field . "}}</label>";
+                                    $ligne .= '<label class="exNomFichier">' . "{{" . strtolower($E) . "." . $field . "}}</label>";
                                 }
                             } else {   //si c'est un autre ALIAS
-                                $ligne .= '{{' . strtolower($entitie) . '.' . $field;
+                                $ligne .= '{{' . strtolower($E) . '.' . $field;
                             }
                         } else {   //si c'est pas un ALIAS
                             if (in_array($field, $timestamptable))
-                                $ligne .= '{{' . strtolower($entitie) . '.' . $field;
+                                $ligne .= '{{' . strtolower($E) . '.' . $field;
                         }
                         //gestion des filtres à ajouter
                         //on a des filtres
@@ -589,7 +460,7 @@ last %}
                         }
                         //timestamptable
                         if (in_array($field, $timestamptable))
-                            $filtres .= ' is empty ? "" :' . $entitie . ' . ' . $field . '|date("d/m à H:i", "Europe/Paris")';
+                            $filtres .= ' is empty ? "" :' . $E . ' . ' . $field . '|date("d/m à H:i", "Europe/Paris")';
 
                         //on vérifie s'il faut l'afficher (pas de no_index et pas du type relation
                         if (!isset($val['ATTR']['no_show'])) {
@@ -613,25 +484,25 @@ last %}
     </ul>
     </div>";
 
-                $show .= "\n" . '<a href="{{ path(\'' . strtolower($entitie) . '_index\') }}" class="btn btn-secondary mr-2" type="button">Revenir à la liste</button></a>';
+                $show .= "\n" . '<a href="{{ path(\'' . strtolower($E) . '_index\') }}" class="btn btn-secondary mr-2" type="button">Revenir à la liste</button></a>';
 
                 $show .= "{% endblock %}";
                 if ($input->getOption('origin')) {
-                    @mkdir('/app/templates/' . strTolower($entitie));
-                    $dir = "/app/old/" .  date('Y-m-d_H-i-s') . '/' . $entitie;
+                    @mkdir('/app/templates/' . strTolower($E));
+                    $dir = "/app/old/" .  date('Y-m-d_H-i-s') . '/' . $E;
                     @mkdir($dir);
-                    @rename('/app/templates/' . strTolower($entitie) . '/show.html.twig', $dir);
-                    file_put_contents('/app/templates/' . strTolower($entitie) . '/show.html.twig', $show);
+                    @rename('/app/templates/' . strTolower($E) . '/show.html.twig', $dir);
+                    file_put_contents('/app/templates/' . strTolower($E) . '/show.html.twig', $show);
                 } else {
                     @mkdir('/app/crudmick/crud');
-                    file_put_contents('/app/crudmick/crud/' . $entitie . '_show.html.twig', $show);
+                    file_put_contents('/app/crudmick/crud/' . $E . '_show.html.twig', $show);
                 }
                 //creation du controller
                 $controller = "<?php
 namespace  App\Controller ;
-use App\Entity\\" . $entitie . ';' . '
-use App\Form\\' . $entitie . 'Type;
-use App\Repository\\' . $entitie . 'Repository;
+use App\Entity\\" . $E . ';' . '
+use App\Form\\' . $E . 'Type;
+use App\Repository\\' . $E . 'Repository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -641,29 +512,29 @@ use DateTimeImmutable;
 use App\CMService\FunctionEntitie;
 
 /**
- * @Route("' . $res['id']['PARTIE'] . '/' . strTolower($entitie) . '")
- */ class ' . $entitie . 'Controller extends AbstractController
+ * @Route("' . $res['id']['PARTIE'] . '/' . strTolower($E) . '")
+ */ class ' . $E . 'Controller extends AbstractController
  {
     /**
-     * @Route("/", name="' . strTolower($entitie) . '_index", methods={"GET"})
+     * @Route("/", name="' . strTolower($E) . '_index", methods={"GET"})
      */
-    public function index(' . $entitie . 'Repository $' . strtolower($entitie) . 'Repository): Response
+    public function index(' . $E . 'Repository $' . strtolower($E) . 'Repository): Response
     {
-        return $this->render(\'' . strtolower($entitie) . '/index.html.twig\', [
-            \'' . strTolower($entitie) . 's\' => $' . strTolower($entitie) . 'Repository->findBy([\'deletedAt\' => null]),
+        return $this->render(\'' . strtolower($E) . '/index.html.twig\', [
+            \'' . strTolower($E) . 's\' => $' . strTolower($E) . 'Repository->findBy([\'deletedAt\' => null]),
         ]);
     }
     /**
-     * @Route("/deleted", name="' . strTolower($entitie) . '_deleted", methods={"GET"})
+     * @Route("/deleted", name="' . strTolower($E) . '_deleted", methods={"GET"})
      */
-    public function deleted(' . $entitie . 'Repository $' . strtolower($entitie) . 'Repository, EntityManagerInterface $em): Response
+    public function deleted(' . $E . 'Repository $' . strtolower($E) . 'Repository, EntityManagerInterface $em): Response
     {
-        $tab' . $entitie . 's = [];
-        foreach ($' . \strtolower($entitie) . 'Repository->findAll() as $' . \strtolower($entitie) . ') {
-            if ($' . \strtolower($entitie) . '->getDeletedAt() != null) $tab' . $entitie . 's[] = $' . \strtolower($entitie) . ';
+        $tab' . $E . 's = [];
+        foreach ($' . \strtolower($E) . 'Repository->findAll() as $' . \strtolower($E) . ') {
+            if ($' . \strtolower($E) . '->getDeletedAt() != null) $tab' . $E . 's[] = $' . \strtolower($E) . ';
         }
-        return $this->render(\'' . strtolower($entitie) . '/index.html.twig\', [
-            \'' . strTolower($entitie) . 's\' =>$tab' . $entitie . 's 
+        return $this->render(\'' . strtolower($E) . '/index.html.twig\', [
+            \'' . strTolower($E) . 's\' =>$tab' . $E . 's 
         ]);
     }';
                 //boucle pour savoir récupéré les alias autcomplete
@@ -672,121 +543,121 @@ use App\CMService\FunctionEntitie;
                     if (isset($val['ALIAS'])) {
                         //on commence par ALIAS autocomplte
                         if ($val['ALIAS'] == 'autocomplete') {
-                            $render .= '  \'autocomplete' . ucfirst($field) . '\' => $functionEntitie->getAllOfFields(\'' . \strtolower($entitie) . '\', \'' . $field . '\'),';
+                            $render .= '  \'autocomplete' . ucfirst($field) . '\' => $functionEntitie->getAllOfFields(\'' . \strtolower($E) . '\', \'' . $field . '\'),';
                         }
                     }
                 }
 
                 $controller .= '  /**
-     * @Route("/new", name="' . strTolower($entitie) . '_new", methods={"GET","POST"})
+     * @Route("/new", name="' . strTolower($E) . '_new", methods={"GET","POST"})
      */
     public function new(Request $request';
                 if ($render) $controller .= ',FunctionEntitie $functionEntitie';
                 $controller .= '): Response
     {
-        $' . strTolower($entitie) . ' = new ' . $entitie . '();
-        $form = $this->createForm(' . $entitie . 'Type::class, $' . strTolower($entitie) . ');
+        $' . strTolower($E) . ' = new ' . $E . '();
+        $form = $this->createForm(' . $E . 'Type::class, $' . strTolower($E) . ');
         $form->handleRequest($request);
         if ($form->isSubmitted() && $form->isValid()) {
             $entityManager = $this->getDoctrine()->getManager();
-            $entityManager->persist($' . strTolower($entitie) . ');
+            $entityManager->persist($' . strTolower($E) . ');
             $entityManager->flush();
-                return $this->redirectToRoute(\'' . strTolower($entitie) . '_index\');
+                return $this->redirectToRoute(\'' . strTolower($E) . '_index\');
         }
-        return $this->render(\'' . strTolower($entitie) . '/new.html.twig\', [
+        return $this->render(\'' . strTolower($E) . '/new.html.twig\', [
             ' . $render . '
-            \'' . strTolower($entitie) . '\' => $' . strTolower($entitie) . ',
+            \'' . strTolower($E) . '\' => $' . strTolower($E) . ',
             \'form\' => $form->createView()
         ]);
     }
      /**
-     * @Route("/{id}", name="' . strTolower($entitie) . '_show", methods={"GET"})
+     * @Route("/{id}", name="' . strTolower($E) . '_show", methods={"GET"})
      */
-    public function show(' . $entitie . ' $' . strTolower($entitie) . '): Response
+    public function show(' . $E . ' $' . strTolower($E) . '): Response
     {
-        return $this->render(\'' . strTolower($entitie) . '/show.html.twig\', [
-            \'' . strTolower($entitie) . '\' => $' . strTolower($entitie) . '
+        return $this->render(\'' . strTolower($E) . '/show.html.twig\', [
+            \'' . strTolower($E) . '\' => $' . strTolower($E) . '
         ]);
     }
       /**
-     * @Route("/{id}/edit", name="' . strTolower($entitie) . '_edit", methods={"GET","POST"})
+     * @Route("/{id}/edit", name="' . strTolower($E) . '_edit", methods={"GET","POST"})
      */
-    public function edit(Request $request, ' . $entitie . ' $' . strTolower($entitie);
+    public function edit(Request $request, ' . $E . ' $' . strTolower($E);
                 if ($render) $controller .= ',FunctionEntitie $functionEntitie';
                 $controller .= '): Response
     {
-        $form = $this->createForm(' . $entitie . 'Type::class, $' . strTolower($entitie) . ');
+        $form = $this->createForm(' . $E . 'Type::class, $' . strTolower($E) . ');
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
             $this->getDoctrine()->getManager()->flush();
-            return $this->redirectToRoute(\'' . strTolower($entitie) . '_index\');
+            return $this->redirectToRoute(\'' . strTolower($E) . '_index\');
         }
-        return $this->render(\'' . strTolower($entitie) . '/new.html.twig\', [
+        return $this->render(\'' . strTolower($E) . '/new.html.twig\', [
              ' . $render . '
-            \'' . strTolower($entitie) . '\' => $' . strTolower($entitie) . ',
+            \'' . strTolower($E) . '\' => $' . strTolower($E) . ',
             \'form\' => $form->createView(),
         ]);
     }
 
     /**
-     * @Route("/{id}/copy", name="' . strTolower($entitie) . '_copy", methods={"GET","POST"})
+     * @Route("/{id}/copy", name="' . strTolower($E) . '_copy", methods={"GET","POST"})
      */
-    public function copy(Request $request, ' . $entitie . ' $' . strTolower($entitie) . 'c): Response
+    public function copy(Request $request, ' . $E . ' $' . strTolower($E) . 'c): Response
     {
-        $' . strTolower($entitie) . ' = clone $' . strTolower($entitie) . 'c;
+        $' . strTolower($E) . ' = clone $' . strTolower($E) . 'c;
 
         $em = $this->getDoctrine()->getManager();
-        $em->persist($' . strTolower($entitie) . ');
+        $em->persist($' . strTolower($E) . ');
         $em->flush();
-        return $this->redirectToRoute(\'' . strTolower($entitie) . '_index\');
-        //$' . strTolower($entitie) . ' = $copier->copy($' . strTolower($entitie) . 'c);
-        //$form = $this->createForm(' . $entitie . 'Type::class, $' . strTolower($entitie) . ');
+        return $this->redirectToRoute(\'' . strTolower($E) . '_index\');
+        //$' . strTolower($E) . ' = $copier->copy($' . strTolower($E) . 'c);
+        //$form = $this->createForm(' . $E . 'Type::class, $' . strTolower($E) . ');
         //$form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
             $entityManager = $this->getDoctrine()->getManager();
-            $entityManager->persist($' . strTolower($entitie) . ');
+            $entityManager->persist($' . strTolower($E) . ');
             $entityManager->flush();
 
-            return $this->redirectToRoute(\'' . strTolower($entitie) . '_index\');
+            return $this->redirectToRoute(\'' . strTolower($E) . '_index\');
         }
 
-        return $this->render(\'' . strTolower($entitie) . '/new.html.twig\', [
-            \'' . strTolower($entitie) . '\' => $' . strTolower($entitie) . ',
+        return $this->render(\'' . strTolower($E) . '/new.html.twig\', [
+            \'' . strTolower($E) . '\' => $' . strTolower($E) . ',
             \'form\' => $form->createView(),
         ]);
     }
 
     /**
-     * @Route("/{id}", name="' . strTolower($entitie) . '_delete", methods={"POST"})
+     * @Route("/{id}", name="' . strTolower($E) . '_delete", methods={"POST"})
      */
-    public function delete(Request $request, ' . $entitie . ' $' . strTolower($entitie) . '): Response
+    public function delete(Request $request, ' . $E . ' $' . strTolower($E) . '): Response
     {
-        if ($this->isCsrfTokenValid(\'delete\'.$' . strTolower($entitie) . '->getId(), $request->request->get(\'_token\'))) {
+        if ($this->isCsrfTokenValid(\'delete\'.$' . strTolower($E) . '->getId(), $request->request->get(\'_token\'))) {
             $entityManager = $this->getDoctrine()->getManager();
               if ($request->request->has(\'delete_delete\'))
-                    $entityManager->remove($' . strTolower($entitie) . ');
+                    $entityManager->remove($' . strTolower($E) . ');
                     if ($request->request->has(\'delete_restore\'))
-                    $' . strTolower($entitie) . '->setDeletedAt(null);
+                    $' . strTolower($E) . '->setDeletedAt(null);
                     if ($request->request->has(\'delete_softdelete\'))
-                    $' . strTolower($entitie) . '->setDeletedAt(new DateTimeImmutable(\'now\'));
+                    $' . strTolower($E) . '->setDeletedAt(new DateTimeImmutable(\'now\'));
             $entityManager->flush();
         }
  if ($request->request->has(\'delete_softdelete\'))
-                  return $this->redirectToRoute(\'' . strTolower($entitie) . '_index\');
+                  return $this->redirectToRoute(\'' . strTolower($E) . '_index\');
                 else
-                  return $this->redirectToRoute(\'' . strTolower($entitie) . '_deleted\');
+                  return $this->redirectToRoute(\'' . strTolower($E) . '_deleted\');
     }
 }
     ';
 
                 if ($input->getOption('origin')) {
-                    $dir = "/app/old/" .  date('Y-m-d_H-i-s') . '/' . $entitie;
-                    @rename('/app/src/Controller/' . $entitie . 'Controller/' . $entitie . 'Controller.php', $dir);
-                    file_put_contents('/app/src/Controller/' .  $entitie . 'Controller.php', $controller);
+                    $dir = "/app/old/" .  date('Y-m-d_H-i-s') . '/' . $E;
+                    @rename('/app/src/Controller/' . $E . 'Controller/' . $E . 'Controller.php', $dir);
+                    file_put_contents('/app/src/Controller/' .  $E . 'Controller.php', $controller);
                 } else {
-                    file_put_contents('/app/crudmick/crud/' . $entitie . 'Controller.php', $controller);
+                    file_put_contents('/app/crudmick/crud/' . $E . 'Controller.php', $controller);
                 }
 
                 /* ------------------------------------------------------------------------------------------------------------------ */
@@ -818,25 +689,25 @@ use App\CMService\FunctionEntitie;
                     $resOpt = array(); //stock des opts
                     //attribut unique pour le mask qui donne aussi le type
                     $tab_ALIAS = ['fichier' => 'file', 'hidden' => 'hidden', 'radio' => 'radio', 'date' => 'date', 'password' => 'password', 'centimetre' => 'CentiMetre', 'metre' => 'metre', 'prix' => 'money', 'autocomplete' => 'text', 'ckeditor' => 'CKEditor', 'editorjs' => 'hidden',  'texte_propre' => 'text', 'email' => 'email', 'color' => 'color', 'phonefr' => 'tel', 'code_postal' => 'text', 'km' => 'number', 'adeli' => 'number'];
-                    if (isset($val['ALIAS'])) {
-                        //si on connait cet alias on met son type dans add et on ajoute le use et on ajoute l'alias dans les attr
-                        if (array_key_exists($val['ALIAS'], $tab_ALIAS) !== false) {
-                            $TYPE = ucfirst($tab_ALIAS[$val['ALIAS']]) . "Type::class";
-                            $resAttr[] = "'data-inputmask' => \"'alias': '" . $val['ALIAS'] . "'\"";
-                            if ($tab_ALIAS[$val['ALIAS']] == 'money') {
-                                $resAttr[] = "'divisor' => 100";
-                            }
-                            //on ajoute le type dans les use si pas existant
-                            if (!in_array(ucfirst($tab_ALIAS[$val['ALIAS']]), $biblio_use)) {
-                                $biblio_use[] = ucfirst($tab_ALIAS[$val['ALIAS']]);
-                            }
-                        } else {
-                            //sinon on met juste le type dans add
-                            $TYPE = $field;
-                        }
-                        //pour editorjs
-                        if ($val['ALIAS'] == 'editorjs') $resAttr[] = "'class'=>'editorjs'";
-                    }
+                    // if (isset($val['ALIAS'])) {
+                    //     //si on connait cet alias on met son type dans add et on ajoute le use et on ajoute l'alias dans les attr
+                    //     if (array_key_exists($val['ALIAS'], $tab_ALIAS) !== false) {
+                    //         $TYPE = ucfirst($tab_ALIAS[$val['ALIAS']]) . "Type::class";
+                    //         $resAttr[] = "'data-inputmask' => \"'alias': '" . $val['ALIAS'] . "'\"";
+                    //         if ($tab_ALIAS[$val['ALIAS']] == 'money') {
+                    //             $resAttr[] = "'divisor' => 100";
+                    //         }
+                    //         //on ajoute le type dans les use si pas existant
+                    //         if (!in_array(ucfirst($tab_ALIAS[$val['ALIAS']]), $biblio_use)) {
+                    //             $biblio_use[] = ucfirst($tab_ALIAS[$val['ALIAS']]);
+                    //         }
+                    //     } else {
+                    //         //sinon on met juste le type dans add
+                    //         $TYPE = $field;
+                    //     }
+                    //     //pour editorjs
+                    //     if ($val['ALIAS'] == 'editorjs') $resAttr[] = "'class'=>'editorjs'";
+                    // }
 
 
                     //travail sur ATTR
@@ -898,7 +769,7 @@ use App\CMService\FunctionEntitie;
             $finalft = '<?php
 namespace App\Form;
 
-use App\Entity\\' . $entitie . ' ;
+use App\Entity\\' . $E . ' ;
 
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\FormBuilderInterface;
@@ -933,7 +804,7 @@ use Symfony\Component\OptionsResolver\OptionsResolver;' . "\n";
             }
 
 
-            $finalft .= 'class ' . $entitie . 'Type extends AbstractType
+            $finalft .= 'class ' . $E . 'Type extends AbstractType
 {
 public function buildForm(FormBuilderInterface $builder, array $AtypeOption)
 {
@@ -943,7 +814,7 @@ $builder';
 public function configureOptions(OptionsResolver $resolver)
 {
 $resolver->setDefaults([
-            \'data_class\' => ' . $entitie . '::class,
+            \'data_class\' => ' . $E . '::class,
         ]);
     }
 }
@@ -952,11 +823,11 @@ $resolver->setDefaults([
 
 
             if ($input->getOption('origin')) {
-                $dir = "/app/old/" .  date('Y-m-d_H-i-s') . '/' . $entitie;
-                @rename('/app/src/Form/' . $entitie . 'Type.php', $dir);
-                file_put_contents('/app/src/Form/' .  $entitie . 'Type.php', $finalft);
+                $dir = "/app/old/" .  date('Y-m-d_H-i-s') . '/' . $E;
+                @rename('/app/src/Form/' . $E . 'Type.php', $dir);
+                file_put_contents('/app/src/Form/' .  $E . 'Type.php', $finalft);
             } else {
-                file_put_contents('/app/crudmick/crud/' . $entitie . 'Type.php', $finalft);
+                file_put_contents('/app/crudmick/crud/' . $E . 'Type.php', $finalft);
             }
         } else {
             $io->error('Please get the name of entitie');
@@ -966,5 +837,148 @@ $resolver->setDefaults([
 
 
         return Command::SUCCESS;
+    }
+
+    /**
+     * Method getEffects
+     *
+     */
+    private function getEffects()
+    {
+        $class = 'App\Entity\\' . $this->E;
+        $r = new \ReflectionClass(new $class); //property of class
+        //array of search
+        $aSupprimer = array('/**', '*/'); // for cleaning
+        $mCrud = array('pour éviter retour false', 'ATTR', 'PARTIE', 'EXTEND', 'OPT', 'TPL', 'TWIG', 'ALIAS'); // array for create
+        $FUnique = array('EXTEND', 'PARTIE', 'ALIAS'); //array with a uniq value
+        foreach ($r->getProperties() as $property) {
+            $name = $property->getName();
+            $docs = (explode("\n", $property->getDocComment()));
+            //list comment tags
+            foreach ($docs as $doc) {
+                //remove tag
+                if (!in_array(trim($doc), $aSupprimer)) {
+                    //remove spaces
+                    $docClean = trim($doc);
+                    if (substr($docClean, 0, strlen('* '))) {
+                        $docClean = substr($docClean, strlen('* '));
+                    }
+                    //list tag with =
+                    $posEgale = strpos($docClean, '=');
+                    if ($posEgale !== false) {
+                        if ($type = array_search(substr($docClean, 0, $posEgale), $mCrud)) {
+                            //if it's a only value  field
+                            if (in_array($mCrud[$type], $FUnique) !== false) {
+                                $res[$name][$mCrud[$type]] = substr($docClean, $posEgale + 1);
+                            } else { //else if can set multiple value
+                                $res[$name][$mCrud[$type]][] = substr($docClean, $posEgale + 1);
+                            }
+                        } else { //if he has = but it's not a word of crudmick
+                            $res[$name]['AUTRE'][] = $docClean;
+                        }
+                    } else {
+                        //for others
+                        $res[$name]['AUTRE'][] = $docClean;
+                    }
+                }
+            }
+        }
+        $this->res = $res;
+    }
+
+    private function createNew()
+    {
+        $res = $this->res;
+        $E = $this->E;
+        $e = strToLower($E);
+        $timestamptable = $this->timestamptable;
+        $html = $this->twigParser(file_get_contents($this->path . 'new.html.twig'), array('e' => $e, 'E' => $E, 'extends' => $res['id']['EXTEND']));
+        $twigNew = []; // array for stock parser
+        $twigNew['form_rows'] = ''; //contains string for replace form_rows
+        //lopp on fields
+        $new = ''; //!!!!!!!!!!!!!!!!!!!!!!
+        foreach ($res as $field => $val) {
+            $Field = ucfirst($field);
+            //jump timestamptables and id
+            if (in_array($field, $timestamptable) === false and $field != 'id') {
+                $no_new = false;
+                //verify show for new
+                if (isset($val['ATTR'])) $no_new = in_array('no_new', $val['ATTR']) ? true : false;
+                //if no_new insert in twig, field is rendered
+                $twigNew['form_rows'] .= $no_new ? ' {% do form.' . $field . '.setRendered() %}' . "\n" : '{{ form_row(form.' . $field . ') }}' . "\n";
+                //All fields except no_new and id
+                if ($no_new == false) {
+
+                    if (isset($val['ALIAS'])) {
+
+                        //ALIAS file
+                        // he has ATTR file, text or picture
+
+                        if ($val['ALIAS'] == 'file') {
+                            $twigNew['form_rows'] .= '<div class="form-group">';
+                            //get the type by ATTR with default text
+                            if (isset($val['ATTR'])) {
+                                $attr = explode('=>', $val['ATTR'][0]);
+                                $type = $attr[0];
+                            } else {
+                                $type = 'new_text';
+                            }
+                            //file ATTR type for show
+                            switch ($type) {
+                                case 'new_picture':
+                                    $size = explode('x', $attr[1]);
+                                    $sizef = trim($size[0]) == 'auto' ? 'height=' . $size[1] . 'px' : 'width=' . $size[0] . 'px'; //render the html size
+                                    $twigNew['form_rows'] .= "\n" . "{%if $e.$field %}\n<img $sizef src=\"{{voir('$field/~$e.$field')}}\">\n{% endif %}"; // add html form
+                                    break;
+                                case 'new_icon':
+                                    $twigNew['form_rows'] .= "\n" . "{%if $e.$field %}\n<img src=\"{{getico('$field/$e.$field')}}\"> \n{% endif %}"; // add html form
+                                    break;
+                                case 'new_text':
+                                default:
+                                    $twigNew['form_rows'] .= "\n<label class='exNomFichier'>{{ $e.$field }}</label>";
+                                    break;
+                            }
+                            $twigNew['form_rows'] .= "\n</div>\n";
+                        }
+                        //for editorjs
+                        if ($val['ALIAS'] == 'editorjs')  $twigNew['form_rows'] .= "<div id='editorjs'></div>";
+                        //for autocomplete.js
+                        if ($val['ALIAS'] == 'autocomplete')
+                            $twigNew['form_rows'] .= "<input type='hidden' class='autocomplete' data-id='$e" . "_" . "$field' value='{{autocomplete$Field}}'>";
+                    }
+                }
+            }
+        }
+        $html = $this->twigParser($html, $twigNew);
+        if ($this->input->getOption('origin')) {
+            @mkdir('/app/templates/' . $e);
+            $dir = "/app/old/" .  date('Y-m-d_H-i-s') . '/' . $E;
+            @mkdir($dir);
+            @rename('/app/templates/' . $e . '/new.html.twig', $dir);
+            file_put_contents('/app/templates/' . $e . '/new.html.twig', $html);
+        } else {
+            @mkdir('/app/crudmick/crud');
+            file_put_contents('/app/crudmick/crud/' . $E . '_new.html.twig', $html);
+        }
+
+
+
+        dd($html);
+    }
+
+    /**
+     * Method twigParser
+     *
+     * @param $html string twig with ¤...¤ for replacement
+     * @param $tab array tableau des clefs à rechercher entre {{}} et à remplacer par value
+     *
+     * @return void
+     */
+    private function twigParser($html, $tab)
+    {
+        foreach ($tab as $key => $value) {
+            $html = str_replace('¤' . $key . '¤', $value, $html);
+        }
+        return $html;
     }
 }
