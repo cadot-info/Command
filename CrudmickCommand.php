@@ -185,6 +185,11 @@ last %}
                                 if (
                                     $val['ALIAS'] == 'editorjs'
                                 ) $new .= "<div id='editorjs'></div>";
+                                //pour autocomplete.js
+                                if (
+                                    $val['ALIAS'] == 'autocomplete'
+                                )
+                                    $new .= '<input type="hidden" id="autocomplete' . ucfirst($field) . '" value="{{autocomplete' . ucfirst($field) . '}}">';
                             }
                         }
                     }
@@ -626,6 +631,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Doctrine\ORM\EntityManagerInterface;
 use DateTimeImmutable;
+use App\CMService\FunctionEntitie;
 
 /**
  * @Route("' . $res['id']['PARTIE'] . '/' . strTolower($entitie) . '")
@@ -652,12 +658,24 @@ use DateTimeImmutable;
         return $this->render(\'' . strtolower($entitie) . '/index.html.twig\', [
             \'' . strTolower($entitie) . 's\' =>$tab' . $entitie . 's 
         ]);
-    }
+    }';
+                //boucle pour savoir récupéré les alias autcomplete
+                $render = '';
+                foreach ($res as $field => $val) {
+                    if (isset($val['ALIAS'])) {
+                        //on commence par ALIAS autocomplte
+                        if ($val['ALIAS'] == 'autocomplete') {
+                            $render .= '  \'autocomplete' . ucfirst($field) . '\' => $functionEntitie->getAllOfFields(\'' . \strtolower($entitie) . '\', \'' . $field . '\'),';
+                        }
+                    }
+                }
 
-      /**
+                $controller .= '  /**
      * @Route("/new", name="' . strTolower($entitie) . '_new", methods={"GET","POST"})
      */
-    public function new(Request $request): Response
+    public function new(Request $request';
+                if ($render) $controller .= ',FunctionEntitie $functionEntitie';
+                $controller .= '): Response
     {
         $' . strTolower($entitie) . ' = new ' . $entitie . '();
         $form = $this->createForm(' . $entitie . 'Type::class, $' . strTolower($entitie) . ');
@@ -669,6 +687,7 @@ use DateTimeImmutable;
                 return $this->redirectToRoute(\'' . strTolower($entitie) . '_index\');
         }
         return $this->render(\'' . strTolower($entitie) . '/new.html.twig\', [
+            ' . $render . '
             \'' . strTolower($entitie) . '\' => $' . strTolower($entitie) . ',
             \'form\' => $form->createView()
         ]);
@@ -685,7 +704,9 @@ use DateTimeImmutable;
       /**
      * @Route("/{id}/edit", name="' . strTolower($entitie) . '_edit", methods={"GET","POST"})
      */
-    public function edit(Request $request, ' . $entitie . ' $' . strTolower($entitie) . '): Response
+    public function edit(Request $request, ' . $entitie . ' $' . strTolower($entitie);
+                if ($render) $controller .= ',FunctionEntitie $functionEntitie';
+                $controller .= '): Response
     {
         $form = $this->createForm(' . $entitie . 'Type::class, $' . strTolower($entitie) . ');
         $form->handleRequest($request);
@@ -695,6 +716,7 @@ use DateTimeImmutable;
             return $this->redirectToRoute(\'' . strTolower($entitie) . '_index\');
         }
         return $this->render(\'' . strTolower($entitie) . '/new.html.twig\', [
+             ' . $render . '
             \'' . strTolower($entitie) . '\' => $' . strTolower($entitie) . ',
             \'form\' => $form->createView(),
         ]);
@@ -788,7 +810,7 @@ use DateTimeImmutable;
                     $resAttr = array(); //stock des attrs
                     $resOpt = array(); //stock des opts
                     //attribut unique pour le mask qui donne aussi le type
-                    $tab_ALIAS = ['fichier' => 'file', 'hidden' => 'hidden', 'radio' => 'radio', 'date' => 'date', 'password' => 'password', 'centimetre' => 'CentiMetre', 'metre' => 'metre', 'prix' => 'money', 'ckeditor' => 'CKEditor', 'editorjs' => 'hidden',  'texte_propre' => 'text', 'email' => 'email', 'color' => 'color', 'phonefr' => 'tel', 'code_postal' => 'text', 'km' => 'number', 'adeli' => 'number'];
+                    $tab_ALIAS = ['fichier' => 'file', 'hidden' => 'hidden', 'radio' => 'radio', 'date' => 'date', 'password' => 'password', 'centimetre' => 'CentiMetre', 'metre' => 'metre', 'prix' => 'money', 'autocomplete' => 'text', 'ckeditor' => 'CKEditor', 'editorjs' => 'hidden',  'texte_propre' => 'text', 'email' => 'email', 'color' => 'color', 'phonefr' => 'tel', 'code_postal' => 'text', 'km' => 'number', 'adeli' => 'number'];
                     if (isset($val['ALIAS'])) {
                         //si on connait cet alias on met son type dans add et on ajoute le use et on ajoute l'alias dans les attr
                         if (array_key_exists($val['ALIAS'], $tab_ALIAS) !== false) {
@@ -828,14 +850,28 @@ use DateTimeImmutable;
                         foreach ($val['OPT'] as $opt) {
                             $tabopt = explode('=>', $opt);
                             if ('choices' == $tabopt[0]) {
+                                $choices = str_replace('[', '', $tabopt[1]);
+                                $choices = str_replace(']', '', $choices);
+                                $choices = explode(',', $choices);
+                                $resChoices = '';
+                                foreach ($choices as $k => $v) {
+                                    $tab = explode('=>', $v);
+                                    if (isset($tab[1])) {
+                                        $resChoices .= $tab[0] . '=>' . $tab[1] . ",";
+                                    } else {
+                                        $resChoices .= $v . '=>' . $v . ",";
+                                    }
+                                }
                                 //on ajoute choice dans les librairies à charger
                                 $TYPE = "ChoiceType::class";
                                 if (!in_array('Choice', $biblio_use)) {
                                     $biblio_use[] = 'Choice';
                                 }
-                            }
-                            //on ajoute les choices
-                            $resOpt[] = "'$tabopt[0]'=>" . substr($opt, strlen($tabopt[0]) + 2);
+                                //on ajoute les choices
+                                $resOpt[] = "'choices'=>[" . $resChoices . "]";
+                            } else
+                                //pour les autres
+                                $resOpt[] = "'$tabopt[0]'=>" . substr($opt, strlen($tabopt[0]) + 2);
                         }
                     }
 
