@@ -339,16 +339,22 @@ last %}
                             if ($val['ALIAS'] == 'fichier') {
                                 //on cherche si on a un type de fichier
                                 $typeFichier = 'texte'; // valeur par défaut pour fichier
-                                foreach ($val['ATTR'] as $attribu) {
-                                    $tabFichier = explode('=>', $attribu);
-                                    if ($tabFichier[0] == 'image' || $tabFichier[0] == 'icone') $typeFichier = $tabFichier[0];
-                                }
+                                $attrs = '';
+                                if (isset($val['ATTR']))
+                                    foreach ($val['ATTR'] as $attribu) {
+                                        $tabFichier = explode('=>', $attribu);
+                                        if ($tabFichier[0] == 'image' || $tabFichier[0] == 'icone') $typeFichier = $tabFichier[0];
+                                        else $attrs .= $attribu;
+                                    }
                                 //si on est du type image ou icone
-                                if ($typeFichier !== 'texte') {
+                                if ($typeFichier !== 'texte') { //icone ou image pour ne pas avoir une grande taille
                                     $ligne .= "{%if " . $entitie . "." . $field . " %}" .
-                                        "<a data-toggle='popover-hover' data-original-title=\"\" title=\"\" data-img=\"{{voir('" . $field . "/'~" . $entitie . "." . $field . ")}}\"><img src=\"{{getico('" . $field . "/'~" . $entitie . "." . $field . ")}}\"></a> {% endif %}";
+                                        "<a class='bigpicture' " . $attrs . " href=\"{{asset('/uploads/" . $field . "/'~" . $entitie . "." . $field . ")}}\">
+                                        <img src=\"{{getico('" . $field . "/'~" . $entitie . "." . $field . ")}}\"></a> {% endif %}";
                                 } else
-                                    $ligne .= '<label class="exNomFichier">' . "{{" . $entitie . "." . $field . "}}</label>";
+                                    $ligne .= "{%if " . $entitie . "." . $field . " %}" .
+                                        "<a class='bigpicture' " . $attrs . " href=\"{{asset('/uploads/" . $field . "/'~" . $entitie . "." . $field . ")}}\">" .
+                                        '<label class="exNomFichier">' . "{{" . $entitie . "." . $field . "}}</label></a> {% endif %}";
                             } else  //si c'est un autre ALIAS
                                 $ligne .= '{{' . $entitie . '.' . $field;
                         } else  //si c'est pas un ALIAS
@@ -538,12 +544,13 @@ last %}
                             if ($val['ALIAS'] == 'fichier') {
                                 //on cherche si on a un type de fichier
                                 $typeFichier = 'texte'; // valeur par défaut pour fichier
-                                foreach ($val['ATTR'] as $attribu) {
-                                    $tabFichier = explode('=>', $attribu);
-                                    if ($tabFichier[0] == 'image' || $tabFichier[0] == 'icone') {
-                                        $typeFichier = $tabFichier[0];
+                                if (isset($val['ATTR']))
+                                    foreach ($val['ATTR'] as $attribu) {
+                                        $tabFichier = explode('=>', $attribu);
+                                        if ($tabFichier[0] == 'image' || $tabFichier[0] == 'icone') {
+                                            $typeFichier = $tabFichier[0];
+                                        }
                                     }
-                                }
                                 //type image
                                 if ($typeFichier == 'image') {
                                     $sizef = "";
