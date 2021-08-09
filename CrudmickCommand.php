@@ -18,6 +18,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 He generate beautify crud for symfony
 The options set in entity only for configurate twig, controller and type, it's magic!
 This idea permit modify easily many files for the twig result
+He can create in place by the parameter --orgin or in tempory directory crudmick/crud
 
 The option minimum is:
 - EXTEND for the twig extend (example: EXTEND=admin/index.html.twig get extend for the twig new, show, delete)
@@ -498,167 +499,8 @@ class CrudmickCommand extends Command
                     file_put_contents('/app/crudmick/crud/' . $E . '_show.html.twig', $show);
                 }
                 //creation du controller
-                $controller = "<?php
-namespace  App\Controller ;
-use App\Entity\\" . $E . ';' . '
-use App\Form\\' . $E . 'Type;
-use App\Repository\\' . $E . 'Repository;
-use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Annotation\Route;
-use Doctrine\ORM\EntityManagerInterface;
-use DateTimeImmutable;
-use App\CMService\FunctionEntitie;
 
-/**
- * @Route("' . $res['id']['PARTIE'] . '/' . strTolower($E) . '")
- */ class ' . $E . 'Controller extends AbstractController
- {
-    /**
-     * @Route("/", name="' . strTolower($E) . '_index", methods={"GET"})
-     */
-    public function index(' . $E . 'Repository $' . strtolower($E) . 'Repository): Response
-    {
-        return $this->render(\'' . strtolower($E) . '/index.html.twig\', [
-            \'' . strTolower($E) . 's\' => $' . strTolower($E) . 'Repository->findBy([\'deletedAt\' => null]),
-        ]);
-    }
-    /**
-     * @Route("/deleted", name="' . strTolower($E) . '_deleted", methods={"GET"})
-     */
-    public function deleted(' . $E . 'Repository $' . strtolower($E) . 'Repository, EntityManagerInterface $em): Response
-    {
-        $tab' . $E . 's = [];
-        foreach ($' . \strtolower($E) . 'Repository->findAll() as $' . \strtolower($E) . ') {
-            if ($' . \strtolower($E) . '->getDeletedAt() != null) $tab' . $E . 's[] = $' . \strtolower($E) . ';
-        }
-        return $this->render(\'' . strtolower($E) . '/index.html.twig\', [
-            \'' . strTolower($E) . 's\' =>$tab' . $E . 's 
-        ]);
-    }';
-                //boucle pour savoir récupéré les alias autcomplete
-                $render = '';
-                foreach ($res as $field => $val) {
-                    if (isset($val['ALIAS'])) {
-                        //on commence par ALIAS autocomplte
-                        if ($val['ALIAS'] == 'autocomplete') {
-                            $render .= '  \'autocomplete' . ucfirst($field) . '\' => $functionEntitie->getAllOfFields(\'' . \strtolower($E) . '\', \'' . $field . '\'),';
-                        }
-                    }
-                }
-
-                $controller .= '  /**
-     * @Route("/new", name="' . strTolower($E) . '_new", methods={"GET","POST"})
-     */
-    public function new(Request $request';
-                if ($render) $controller .= ',FunctionEntitie $functionEntitie';
-                $controller .= '): Response
-    {
-        $' . strTolower($E) . ' = new ' . $E . '();
-        $form = $this->createForm(' . $E . 'Type::class, $' . strTolower($E) . ');
-        $form->handleRequest($request);
-        if ($form->isSubmitted() && $form->isValid()) {
-            $entityManager = $this->getDoctrine()->getManager();
-            $entityManager->persist($' . strTolower($E) . ');
-            $entityManager->flush();
-                return $this->redirectToRoute(\'' . strTolower($E) . '_index\');
-        }
-        return $this->render(\'' . strTolower($E) . '/new.html.twig\', [
-            ' . $render . '
-            \'' . strTolower($E) . '\' => $' . strTolower($E) . ',
-            \'form\' => $form->createView()
-        ]);
-    }
-     /**
-     * @Route("/{id}", name="' . strTolower($E) . '_show", methods={"GET"})
-     */
-    public function show(' . $E . ' $' . strTolower($E) . '): Response
-    {
-        return $this->render(\'' . strTolower($E) . '/show.html.twig\', [
-            \'' . strTolower($E) . '\' => $' . strTolower($E) . '
-        ]);
-    }
-      /**
-     * @Route("/{id}/edit", name="' . strTolower($E) . '_edit", methods={"GET","POST"})
-     */
-    public function edit(Request $request, ' . $E . ' $' . strTolower($E);
-                if ($render) $controller .= ',FunctionEntitie $functionEntitie';
-                $controller .= '): Response
-    {
-        $form = $this->createForm(' . $E . 'Type::class, $' . strTolower($E) . ');
-        $form->handleRequest($request);
-
-        if ($form->isSubmitted() && $form->isValid()) {
-            $this->getDoctrine()->getManager()->flush();
-            return $this->redirectToRoute(\'' . strTolower($E) . '_index\');
-        }
-        return $this->render(\'' . strTolower($E) . '/new.html.twig\', [
-             ' . $render . '
-            \'' . strTolower($E) . '\' => $' . strTolower($E) . ',
-            \'form\' => $form->createView(),
-        ]);
-    }
-
-    /**
-     * @Route("/{id}/copy", name="' . strTolower($E) . '_copy", methods={"GET","POST"})
-     */
-    public function copy(Request $request, ' . $E . ' $' . strTolower($E) . 'c): Response
-    {
-        $' . strTolower($E) . ' = clone $' . strTolower($E) . 'c;
-
-        $em = $this->getDoctrine()->getManager();
-        $em->persist($' . strTolower($E) . ');
-        $em->flush();
-        return $this->redirectToRoute(\'' . strTolower($E) . '_index\');
-        //$' . strTolower($E) . ' = $copier->copy($' . strTolower($E) . 'c);
-        //$form = $this->createForm(' . $E . 'Type::class, $' . strTolower($E) . ');
-        //$form->handleRequest($request);
-
-        if ($form->isSubmitted() && $form->isValid()) {
-            $entityManager = $this->getDoctrine()->getManager();
-            $entityManager->persist($' . strTolower($E) . ');
-            $entityManager->flush();
-
-            return $this->redirectToRoute(\'' . strTolower($E) . '_index\');
-        }
-
-        return $this->render(\'' . strTolower($E) . '/new.html.twig\', [
-            \'' . strTolower($E) . '\' => $' . strTolower($E) . ',
-            \'form\' => $form->createView(),
-        ]);
-    }
-
-    /**
-     * @Route("/{id}", name="' . strTolower($E) . '_delete", methods={"POST"})
-     */
-    public function delete(Request $request, ' . $E . ' $' . strTolower($E) . '): Response
-    {
-        if ($this->isCsrfTokenValid(\'delete\'.$' . strTolower($E) . '->getId(), $request->request->get(\'_token\'))) {
-            $entityManager = $this->getDoctrine()->getManager();
-              if ($request->request->has(\'delete_delete\'))
-                    $entityManager->remove($' . strTolower($E) . ');
-                    if ($request->request->has(\'delete_restore\'))
-                    $' . strTolower($E) . '->setDeletedAt(null);
-                    if ($request->request->has(\'delete_softdelete\'))
-                    $' . strTolower($E) . '->setDeletedAt(new DateTimeImmutable(\'now\'));
-            $entityManager->flush();
-        }
- if ($request->request->has(\'delete_softdelete\'))
-                  return $this->redirectToRoute(\'' . strTolower($E) . '_index\');
-                else
-                  return $this->redirectToRoute(\'' . strTolower($E) . '_deleted\');
-    }
-}
-    ';
-
-                if ($input->getOption('origin')) {
-                    $dir = "/app/old/" .  date('Y-m-d_H-i-s') . '/' . $E;
-                    @rename('/app/src/Controller/' . $E . 'Controller/' . $E . 'Controller.php', $dir);
-                    file_put_contents('/app/src/Controller/' .  $E . 'Controller.php', $controller);
-                } else {
-                    file_put_contents('/app/crudmick/crud/' . $E . 'Controller.php', $controller);
-                }
+                $this->createController();
 
                 /* ------------------------------------------------------------------------------------------------------------------ */
                 /*                                                                                             GENERATION DU FORMTYPE */
@@ -896,7 +738,6 @@ $resolver->setDefaults([
         $twigNew = []; // array for stock parser
         $twigNew['form_rows'] = ''; //contains string for replace form_rows
         //lopp on fields
-        $new = ''; //!!!!!!!!!!!!!!!!!!!!!!
         foreach ($res as $field => $val) {
             $Field = ucfirst($field);
             //jump timestamptables and id
@@ -910,10 +751,8 @@ $resolver->setDefaults([
                 if ($no_new == false) {
 
                     if (isset($val['ALIAS'])) {
-
                         //ALIAS file
                         // he has ATTR file, text or picture
-
                         if ($val['ALIAS'] == 'file') {
                             $twigNew['form_rows'] .= '<div class="form-group">';
                             //get the type by ATTR with default text
@@ -952,18 +791,41 @@ $resolver->setDefaults([
         $html = $this->twigParser($html, $twigNew);
         if ($this->input->getOption('origin')) {
             @mkdir('/app/templates/' . $e);
-            $dir = "/app/old/" .  date('Y-m-d_H-i-s') . '/' . $E;
-            @mkdir($dir);
-            @rename('/app/templates/' . $e . '/new.html.twig', $dir);
             file_put_contents('/app/templates/' . $e . '/new.html.twig', $html);
         } else {
             @mkdir('/app/crudmick/crud');
             file_put_contents('/app/crudmick/crud/' . $E . '_new.html.twig', $html);
         }
-
-
-
-        dd($html);
+    }
+    private function createController()
+    {
+        $res = $this->res;
+        $E = $this->E;
+        $e = strToLower($E);
+        $timestamptable = $this->timestamptable;
+        $html = $this->twigParser(file_get_contents($this->path . 'controller.php'), array('e' => $e, 'E' => $E, 'extends' => $res['id']['EXTEND']));
+        //lop for autocomplete
+        $autocompleteRender = '';
+        foreach ($res as $field => $val) {
+            $Field = ucfirst($field);
+            if (isset($val['ALIAS'])) {
+                if ($val['ALIAS'] == 'autocomplete') {
+                    $autocompleteRender .= "'autocomplete$Field'=>\$functionEntitie->getAllOfFields('$e','$field'),";
+                }
+            }
+        }
+        //parse the html with autocomplete
+        if ($autocompleteRender) {
+            $html = $this->twigParser($html, array('autocompleteRender' => substr($autocompleteRender, 0, -1), 'autocompleteService' => 'use App\CMService\FunctionEntitie'));
+            //specific replacement for php for include Service
+            $html = str_replace('new(Request $request)', 'new(Request $request,FunctionEntitie $functionEntitie)', $html);
+            $html = str_replace('edit(Request $request)', 'edit(Request $request,FunctionEntitie $functionEntitie)', $html);
+        }
+        //create file
+        if ($this->input->getOption('origin'))
+            file_put_contents('/app/src/Controller/' .  $E . 'Controller.php', $html);
+        else
+            file_put_contents('/app/crudmick/crud/' . $E . 'Controller.php', $html);
     }
 
     /**
