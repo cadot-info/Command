@@ -5,7 +5,6 @@
 
 namespace App\CMCommand;
 
-use Twig\Environment;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Style\SymfonyStyle;
@@ -29,7 +28,8 @@ The fields:
     - ATTR= for many show, template_... (example: new_text, index_picture...)
         - text: for show text
         - picture: widthxheight, exaple (autox100, 100x300 ...)
-        
+    - OPT:  
+        - label: for replace label in index, example OPT=label=>House price
  
  */
 class CrudmickCommand extends Command
@@ -37,23 +37,12 @@ class CrudmickCommand extends Command
     protected static $defaultName = 'crudmick:generateCrud';
     protected static $defaultDescription = 'Generate beautify Crud from doctrine entity';
     protected $path = 'src/CMService/tpl/'; //path of tpl
-    private $E;
+    private $Entity;
     private $timestamptable;
     private $res;
     private $r;
     private $input;
 
-
-    // Create a private variable to store the twig environment
-    private $twig;
-
-    public function __construct(Environment $twig)
-    {
-        // Inject it in the constructor and update the value on the class
-        $this->twig = $twig;
-
-        parent::__construct();
-    }
 
     protected function configure(): void
     {
@@ -67,15 +56,15 @@ class CrudmickCommand extends Command
     {
         //var global
         $io = new SymfonyStyle($input, $output);
-        $E = ucfirst($input->getArgument('entitie'));
+        $Entity = ucfirst($input->getArgument('entitie'));
         $timestamptable = ['createdAt', 'updatedAt', 'deletedAt'];
         $this->input = $input;
-        $this->E = $E;
+        $this->Entity = $Entity;
         $this->timestamptable = $timestamptable;
 
         //data of entity bu reflection class
-        if ($E) {
-            if (!file_Exists('/app/src/Entity/' . $E . '.php'))
+        if ($Entity) {
+            if (!file_Exists('/app/src/Entity/' . $Entity . '.php'))
                 $io->error("This entity don't exist in /app/src/Entity");
             else {
                 $this->getEffects(); // $res has many options (attr,opt,twig ... autre) of entity necessary for create
@@ -88,283 +77,32 @@ class CrudmickCommand extends Command
                     $io->error('Please get a PARTIE for id (example: PARTIE=admin, used by controller)');
                     exit();
                 }
-
+                $this->createController();
                 $this->createNew();
 
                 $res = $this->res;
-                /* ------------------------------------------------------------------------------------------------------------------ */
-                /*                                                                                                  CREATION DE INDEX */
-                /* ------------------------------------------------------------------------------------------------------------------ */
-                $index = '{% extends \'' . $res['id']['EXTEND'] . '\' %}';
-                $index .= '
-{% block title %}  ' . $E . ' 
-    {% endblock %}
-{% block body %} 
-<h1> ' . $E . ' </h1>';
-                //on installe sortable si demandé
-                if (isset($res['id']['ATTR'])) {
-                    if (array_search('sortable', $res['id']['ATTR']) !== false) {
-                        $index .= "{% set list=findOneBy('sortable',{'entite':'" . '.$E.' . "'}) %}
-{% if list != null %}
-<input type=\"hidden\" id=\"ex_sortable\" value=\"{{list.Ordre}}\">
-{% endif %}
-    ";
-                    }
-                }
-                //ajout de la table en responsive
-                $index .= "
-<div class=''>
-    <table class='table'>
-        <thead>
-            <tr>";
+                $this->createIndex();
+                $this->createType();
+                dd();
 
-                //on boucle sur les fields
-                foreach ($res as $field => $val) {
-                    // on ajoute les entête
-                    $entete = "<th >";
-                    //on prend le label ou le champ
-                    if (isset($val['OPT']['label'])) {
-                        $entete .= ucfirst(stripslashes(substr($val['OPT']['label'], 1, -1)));
-                    } else {
-                        $entete .= ucfirst($field);
-                    }
-                    $entete .= "</th>";
-                    //on vérifie si on doit l'afficher
-                    if (isset($val['ATTR'])) {
-                        if (array_search('no_index', $val['ATTR']) === false) {
-                            $index .= $entete;
-                        }
-                    } else {
-                        $index .= $entete;
-                    }
-                }
-                //on ajoute la colonne actions
-                $index .= "
-            <th>Actions</th>
-";
-                //on installe un curseur pour sortable si demandé
-                if (isset($res['id']['ATTR'])) {
-                    if (array_search('sortable', $res['id']['ATTR']) !== false) {
-                        $index .= "<tbody id=\"sortable\" style=\"cursor:move;\" >";
-                    } else {
-                        $index .= "<tbody>";
-                    }
-                } else $index .= '
-            </tr>
-</thead>
-<tbody>';
-                $index .= '
-{% for  ' . $E . '  in  ' . strtolower($E) . 's  %}
-    <tr data-num="{{' . $E . '.id }}">';
-                //pour ne pas voir superadmin
-                //                 $index .= "
-                // {% if 'ROLE_SUPER_ADMIN' not in " . strtolower($E) . ".roles %}";
-                $relations = ['onetoone', 'manytoone', 'onetomany', 'manytomany'];
-                foreach ($res as $field => $val) {
-                    //gestion des classes spéciales
-                    $ligne = ''; //pour mémoriser le retours des spéciaux
-                    //recherche de la présence d'un type relation
-                    $relationFind = ''; // pour mémoriser le type de relation
-                    foreach ($val['AUTRE'] as $value) {
-                        if (in_array(strToLower($value), $relations) !== false) {
-                            $relationFind = $relations[in_array(strToLower($value), $relations)];
-                        }
-                    }
-                    //si on a une relation
-                    if ($relationFind) {
-                        $ligne = "\n<td>{% for item in  " . $E . "." . $field . " %}{{ item }},{% endfor %}";
-                    }
-                    //si on à un no_index
-                    if (isset($val['ATTR']['no_index'])) {
-                    }
-                    //si on a un choices
-                    if (isset($val['OPT']['choices'])) {
-                        $choices = str_replace('[', '', $val['OPT']['choices']);
-                        $choices = str_replace(']', '', $choices);
-                        $choices = explode(',', $choices);
-                        $resChoices = '';
-                        foreach ($choices as $k => $v) {
-                            $tab = explode('=>', $v);
-                            if (isset($tab[1])) {
-                                $resChoices .= $tab[0] . ':' . $tab[1] . ",";
-                            } else {
-                                $resChoices .= $v . ':' . $v . ",";
-                            }
-                        }
-                        $ligne = "\n<td>{% set options={" . $resChoices . "} %}";
-                        $ligne .= "
-                    {% set res=[] %}
-                    {% for key,option in options %}
-                    {% if option in " . $E . "." . $field . " %}
-                    {% set res=res|merge([key]) %}
-                    {% endif %}
-                    {% endfor %}
-                    {{res|json_encode";
-                    }
-
-                    //si on est pas dans un cas ci-dessus
-                    if (!$ligne) {
-                        $ligne = "\n<td>";
-                        //si on a des ALIAS
-                        if (isset($val['ALIAS'])) {
-                            //on commence par ALIAS fichier
-                            if ($val['ALIAS'] == 'fichier') {
-                                //on cherche si on a un type de fichier
-                                $typeFichier = 'texte'; // valeur par défaut pour fichier
-                                $attrs = '';
-                                if (isset($val['ATTR']))
-                                    foreach ($val['ATTR'] as $attribu) {
-                                        $tabFichier = explode('=>', $attribu);
-                                        if ($tabFichier[0] == 'image' || $tabFichier[0] == 'icone') $typeFichier = $tabFichier[0];
-                                        else $attrs .= $attribu;
-                                    }
-                                //si on est du type image ou icone
-                                if ($typeFichier !== 'texte') { //icone ou image pour ne pas avoir une grande taille
-                                    $ligne .= "{%if " . $E . "." . $field . " %}" .
-                                        "<a class='bigpicture' " . $attrs . " href=\"{{asset('/uploads/" . $field . "/'~" . $E . "." . $field . ")}}\">
-                                        <img src=\"{{getico('" . $field . "/'~" . $E . "." . $field . ")}}\"></a> {% endif %}";
-                                } else
-                                    $ligne .= "{%if " . $E . "." . $field . " %}" .
-                                        "<a class='bigpicture' " . $attrs . " href=\"{{asset('/uploads/" . $field . "/'~" . $E . "." . $field . ")}}\">" .
-                                        '<label class="exNomFichier">' . "{{" . $E . "." . $field . "}}</label></a> {% endif %}";
-                            } else  //si c'est un autre ALIAS
-                                $ligne .= '{{' . $E . '.' . $field;
-                        } else  //si c'est pas un ALIAS
-                            $ligne .= '{{' . $E . '.' . $field;
-                    }
-                    //gestion des filtres à ajouter
-                    //on a des filtres
-                    $filtres = '';
-                    if (isset($val['TWIG']))
-                        foreach ($val['TWIG'] as $twig) {
-                            $filtres .= "|" . $twig;
-                        }
-                    //timestamptable
-                    if (in_array($field, $timestamptable))
-                        $filtres .= ' is empty ? "" :' . $E . ' . ' . $field . '|date("d/m à H:i", "Europe/Paris")';
-
-                    //on vérifie s'il faut l'afficher (pas de no_index et pas du type relation
-                    if (!isset($val['ATTR']['no_index']) && !$relationFind) {
-                        $index .= $ligne . $filtres;
-                        //pour le type ckeditor ou editorjs on ajoute un filtre
-                        if (isset($val['ALIAS']))
-                            if ($val['ALIAS'] == 'ckeditor' or $val['ALIAS'] == 'editorjs')
-                                $index .= '|striptags|u.truncate(200, "...", false)|cleanhtml';
-                        //on ferme pour tous les types sauf fichier
-                        if (isset($val['ALIAS'])) {
-                            if ($val['ALIAS'] != 'fichier') {
-                                $index .= "}}";
-                            }
-                        } else $index .= "}}";
-
-                        //on ferme la ligne pour tous
-                        $index .= "</td>";
-                        //si c'est une relation
-                        if ($relationFind)
-                            $index .= $ligne . $filtres . "</td>";
-                    }
-                }
-                //ajout des actions
-                $index .= "<td>
-                    <form method='post' action=\"{{ path('" . strtolower($E) . "_delete', {'id':  $E.id }) }}\" >
-                    <div class='row'>
-                    <div class='col-3'>
-                        <input type=\"hidden\" name=\"_token\" value=\"{{ csrf_token('delete' ~  $E . id ) }}\">
-                        <a class='btn btn-xs btn-primary' data-toggle='tooltip' title='Voir' href=\"{{ path('" . strtolower($E) . "_show', {'id':  $E.id }) }}\"><i class=\"icone fas fa-glasses \"></i></a>
-                        </div>
-                        <div class='col-3'>
-                        <a class='btn btn-xs btn-secondary' data-toggle='tooltip' title='Editer' href=\"{{ path('" . strtolower($E) . "_edit', {'id':  $E.id }) }}\"><i class=\"icone fas fa-pen \"></i></a>
-                        </div>
-                        <div class='col-3'>
-                        <a class='btn btn-xs btn-secondary' data-toggle='tooltip' title='Dupliquer' href=\"{{ path('" . strtolower($E) . "_copy',{'id':  $E.id }) }}\"><i class=\"icone fas fa-copy \"></i></a>
-                        </div>
-                        {% if action=='deleted' %}
-										<div class='col-3'>
-											<button class=\"btn btn-xs btn-warning \" title=\"restaurer\" name=\"delete_restore\">
-												<i class=\"icone fas fa-trash-restore \"></i>
-											</button>
-
-											<button class=\"btn btn-xs btn-danger \" title=\"supprimer définitivement\" onclick=\"return confirm('Etes-vous sûr de vouloir effacer cet item?');\" name=\"delete_delete\">
-
-												<i class=\"icone fas fa-trash \"></i>
-											</button>
-										</div>
-
-									{% else %}
-										<div class='col-3'>
-											<button class=\"btn btn-xs btn-warning \" title=\"mettre dans la corbeille\" name=\"delete_softdelete\">
-												<i class=\"icone fas fa-trash \"></i>
-											</button>
-										</div>
-
-									{% endif %}
-                    </div>
-                        </form>
-                        </td>
-                        </tr>
-                        ";
-                //fermeture de la ligne
-                //$index .= "</tr>";
-                //fin pour cacher superadmin
-                //$index .= "{% endif %}";
-                $index .= "
-            {% else %}
-            <tr>
-                <td colspan=" . (count($res) + 1) . ">Aucun enregistrement</td>
-            </tr>
-            {% endfor %}
-            
-        </tbody>
-    </table>
-</div>
-<div class=\"row\">
-		<div class=\"col\">
-			<a class='btn btn-primary' data-toggle='tooltip' title='ajouter enregistrement' href=\"{{ path('" . strtolower($E) . "_new') }}\">Ajouter un enregistrement</a>
-		</div>
-		{% if action=='deleted' %}
-			<div class=\"col-auto\">
-				<a class='text-muted ' href=\"{{ path('" . strtolower($E) . "_index') }}\">voir les enregistrements</a>
-			</div>
-		{% else %}
-			<div class=\"col-auto\">
-				<a class='text-muted ' href=\"{{ path('" . strtolower($E) . "_deleted') }}\">voir les enregistrements supprimés</a>
-			</div>
-		{% endif %}
-	</div>
-                       
-";
-
-                $index . "<a href=\"{{ path('" . $E . "_new') }}\" class=\"btn btn-primary\" type=\"button\">Ajouter</a>";
-                //si on est avec sortable 
-                if (isset(($res['id'])['ATTR']['sortable']))
-                    $index .= "<input entite=\"" . $E . "\"  id=\"save_sortable\" type=\"hidden\">";
-                //fermeture du block
-                $index .= "{% endblock %}";
-                if ($input->getOption('origin')) {
-                    $dir = "/app/old/" .  date('Y-m-d_H-i-s') . '/' . $E;
-                    @rename('/app/templates/' . strTolower($E) . '/index.html.twig', $dir);
-                    file_put_contents('/app/templates/' . strTolower($E) . '/index.html.twig', $index);
-                } else {
-                    file_put_contents('/app/crudmick/crud/' . $E . '_index.html.twig', $index);
-                }
 
                 //creation de show
                 $show = "{% extends '"  . $res['id']['EXTEND'] . "' %}";
                 $show .= '
-{% block title %}  ' . $E . ' 
+{% block title %}  ' . $Entity . ' 
     {% endblock %}
 {% block body %} 
-<h1> ' . $E . ' </h1>';
+<h1> ' . $Entity . ' </h1>';
                 //pour ne pas voir superadmin
                 //                 $show .= "
-                // {% if 'ROLE_SUPER_ADMIN' not in " . strtolower($E) . ".roles %}";
+                // {% if 'ROLE_SUPER_ADMIN' not in " . strtolower($Entity) . ".roles %}";
                 $show .= '
 <div class="col-12">
 <ul class="list-group">';
                 //on boucle sur les fields
                 foreach ($res as $field => $val) {
                     //gestion des classes spéciales
-                    $ligne = ''; //pour mémoriser le retours des spéciaux
+                    $row = ''; //pour mémoriser le retours des spéciaux
                     //recherche de la présence d'un type relation
                     $relationFind = ''; // pour mémoriser le type de relation
                     foreach ($val['AUTRE'] as $value) {
@@ -376,7 +114,7 @@ class CrudmickCommand extends Command
                     }
                     //si on a une relation
                     if ($relationFind) {
-                        $ligne = "\n<td>{{" . strtolower($E) . "." . $field . "|json_encode";
+                        $row = "\n<td>{{" . strtolower($Entity) . "." . $field . "|json_encode";
                     }
                     //si on à un no_show
                     if (isset($val['ATTR']['no_show'])) {
@@ -395,61 +133,61 @@ class CrudmickCommand extends Command
                                 $resChoices .= $v . ':' . $v . ",";
                             }
                         }
-                        $ligne = ucfirst($field) . "{% set options={" . $resChoices . "} %}";
-                        $ligne .= "
+                        $row = ucfirst($field) . "{% set options={" . $resChoices . "} %}";
+                        $row .= "
                     {% set res=[] %}
                     {% for key,option in options %}
-                    {% if option in " . strtolower($E) . "." . $field . " %}
+                    {% if option in " . strtolower($Entity) . "." . $field . " %}
                     {% set res=res|merge([key]) %}
                     {% endif %}
                     {% endfor %}
                     {{res|json_encode";
                     }
                     //is on est pas dans les cas ci-dessus
-                    if (!$ligne) {
-                        $ligne = "\n<li class=\"list-group-item\">
+                    if (!$row) {
+                        $row = "\n<li class=\"list-group-item\">
         <h6>" . ucfirst($field) . "</h6>\n
         <hr>";
                         //si on a des ALIAS
                         if (isset($val['ALIAS'])) {
-                            //on commence par ALIAS fichier
-                            if ($val['ALIAS'] == 'fichier') {
-                                //on cherche si on a un type de fichier
-                                $typeFichier = 'texte'; // valeur par défaut pour fichier
+                            //on commence par ALIAS file
+                            if ($val['ALIAS'] == 'file') {
+                                //on cherche si on a un type de file
+                                $typefile = 'texte'; // valeur par défaut pour file
                                 if (isset($val['ATTR']))
                                     foreach ($val['ATTR'] as $attribu) {
-                                        $tabFichier = explode('=>', $attribu);
-                                        if ($tabFichier[0] == 'image' || $tabFichier[0] == 'icone') {
-                                            $typeFichier = $tabFichier[0];
+                                        $tabfile = explode('=>', $attribu);
+                                        if ($tabfile[0] == 'image' || $tabfile[0] == 'icone') {
+                                            $typefile = $tabfile[0];
                                         }
                                     }
                                 //type image
-                                if ($typeFichier == 'image') {
+                                if ($typefile == 'image') {
                                     $sizef = "";
-                                    $size = explode('x', $tabFichier[1]);
+                                    $size = explode('x', $tabfile[1]);
                                     if (trim($size[0]) == '0') {
                                         $sizef = 'height=' . $size[1] . 'px';
                                     } else {
                                         $sizef = 'width=' . $size[0] . 'px';
                                     }
-                                    $ligne .= "{%if " . strtolower($E) . "." . $field . " %}" .
-                                        "<a data-toggle='popover-hover' data-original-title=\"\" title=\"\" data-img=\"{{voir('" . $field . "/'~" . strtolower($E) . "." . $field . ")}}\"><img " . $sizef . " src=\"{{voir('" . $field . "/'~" . strtolower($E) . "." . $field . ")}}\"></a> {% endif %}";
+                                    $row .= "{%if " . strtolower($Entity) . "." . $field . " %}" .
+                                        "<a data-toggle='popover-hover' data-original-title=\"\" title=\"\" data-img=\"{{voir('" . $field . "/'~" . strtolower($Entity) . "." . $field . ")}}\"><img " . $sizef . " src=\"{{voir('" . $field . "/'~" . strtolower($Entity) . "." . $field . ")}}\"></a> {% endif %}";
                                 }
                                 //type icone
-                                if ($typeFichier == 'icone') {
-                                    $ligne .= "{%if " . strtolower($E) . " . " . $field . " %}" .
-                                        "<a data-toggle='popover-hover' data-original-title=\"\" title=\"\" data-img=\"{{voir('" . $field . "/'~" . strtolower($E) . "." . $field . ")}}\"><img src=\"{{getico('" . $field . "/'~" . strtolower($E) . "." . $field . ")}}\"></a> {% endif %}";
+                                if ($typefile == 'icone') {
+                                    $row .= "{%if " . strtolower($Entity) . " . " . $field . " %}" .
+                                        "<a data-toggle='popover-hover' data-original-title=\"\" title=\"\" data-img=\"{{voir('" . $field . "/'~" . strtolower($Entity) . "." . $field . ")}}\"><img src=\"{{getico('" . $field . "/'~" . strtolower($Entity) . "." . $field . ")}}\"></a> {% endif %}";
                                 }
                                 //type texte
-                                if ($typeFichier == 'texte') {
-                                    $ligne .= '<label class="exNomFichier">' . "{{" . strtolower($E) . "." . $field . "}}</label>";
+                                if ($typefile == 'texte') {
+                                    $row .= '<label class="exNomfile">' . "{{" . strtolower($Entity) . "." . $field . "}}</label>";
                                 }
                             } else {   //si c'est un autre ALIAS
-                                $ligne .= '{{' . strtolower($E) . '.' . $field;
+                                $row .= '{{' . strtolower($Entity) . '.' . $field;
                             }
                         } else {   //si c'est pas un ALIAS
                             if (in_array($field, $timestamptable))
-                                $ligne .= '{{' . strtolower($E) . '.' . $field;
+                                $row .= '{{' . strtolower($Entity) . '.' . $field;
                         }
                         //gestion des filtres à ajouter
                         //on a des filtres
@@ -461,18 +199,18 @@ class CrudmickCommand extends Command
                         }
                         //timestamptable
                         if (in_array($field, $timestamptable))
-                            $filtres .= ' is empty ? "" :' . $E . ' . ' . $field . '|date("d/m à H:i", "Europe/Paris")';
+                            $filtres .= ' is empty ? "" :' . $Entity . ' . ' . $field . '|date("d/m à H:i", "Europe/Paris")';
 
                         //on vérifie s'il faut l'afficher (pas de no_index et pas du type relation
                         if (!isset($val['ATTR']['no_show'])) {
-                            $show .= $ligne . $filtres;
+                            $show .= $row . $filtres;
                             //pour le type ckeditor on ajoute un filtre
                             if (isset($val['ALIAS']))
                                 if ($val['ALIAS'] == 'ckeditor' or $val['ALIAS'] == 'editorjs')
                                     $show .= '|cleanhtml';
-                            //on ferme pour tous les types sauf fichier
+                            //on ferme pour tous les types sauf file
                             if (isset($val['ALIAS'])) {
-                                if ($val['ALIAS'] != 'fichier') {
+                                if ($val['ALIAS'] != 'file') {
                                     $show .= "}}";
                                 }
                             } else {
@@ -485,22 +223,22 @@ class CrudmickCommand extends Command
     </ul>
     </div>";
 
-                $show .= "\n" . '<a href="{{ path(\'' . strtolower($E) . '_index\') }}" class="btn btn-secondary mr-2" type="button">Revenir à la liste</button></a>';
+                $show .= "\n" . '<a href="{{ path(\'' . strtolower($Entity) . '_index\') }}" class="btn btn-secondary mr-2" type="button">Revenir à la liste</button></a>';
 
                 $show .= "{% endblock %}";
                 if ($input->getOption('origin')) {
-                    @mkdir('/app/templates/' . strTolower($E));
-                    $dir = "/app/old/" .  date('Y-m-d_H-i-s') . '/' . $E;
+                    @mkdir('/app/templates/' . strTolower($Entity));
+                    $dir = "/app/old/" .  date('Y-m-d_H-i-s') . '/' . $Entity;
                     @mkdir($dir);
-                    @rename('/app/templates/' . strTolower($E) . '/show.html.twig', $dir);
-                    file_put_contents('/app/templates/' . strTolower($E) . '/show.html.twig', $show);
+                    @rename('/app/templates/' . strTolower($Entity) . '/show.html.twig', $dir);
+                    file_put_contents('/app/templates/' . strTolower($Entity) . '/show.html.twig', $show);
                 } else {
                     @mkdir('/app/crudmick/crud');
-                    file_put_contents('/app/crudmick/crud/' . $E . '_show.html.twig', $show);
+                    file_put_contents('/app/crudmick/crud/' . $Entity . '_show.html.twig', $show);
                 }
                 //creation du controller
 
-                $this->createController();
+
 
                 /* ------------------------------------------------------------------------------------------------------------------ */
                 /*                                                                                             GENERATION DU FORMTYPE */
@@ -518,7 +256,7 @@ class CrudmickCommand extends Command
                 foreach ($res as $field => $val) {
 
                     //gestion des classes spéciales
-                    $ligne = ''; //pour mémoriser le retours des spéciaux
+                    $row = ''; //pour mémoriser le retours des spéciaux
                     //recherche de la présence d'un type relation
                     $relationFind = ''; // pour mémoriser le type de relation
                     foreach ($val['AUTRE'] as $value) {
@@ -530,7 +268,7 @@ class CrudmickCommand extends Command
                     $resAttr = array(); //stock des attrs
                     $resOpt = array(); //stock des opts
                     //attribut unique pour le mask qui donne aussi le type
-                    $tab_ALIAS = ['fichier' => 'file', 'hidden' => 'hidden', 'radio' => 'radio', 'date' => 'date', 'password' => 'password', 'centimetre' => 'CentiMetre', 'metre' => 'metre', 'prix' => 'money', 'autocomplete' => 'text', 'ckeditor' => 'CKEditor', 'editorjs' => 'hidden',  'texte_propre' => 'text', 'email' => 'email', 'color' => 'color', 'phonefr' => 'tel', 'code_postal' => 'text', 'km' => 'number', 'adeli' => 'number'];
+                    $tab_ALIAS = ['file' => 'file', 'hidden' => 'hidden', 'radio' => 'radio', 'date' => 'date', 'password' => 'password', 'centimetre' => 'CentiMetre', 'metre' => 'metre', 'prix' => 'money', 'autocomplete' => 'text', 'ckeditor' => 'CKEditor', 'editorjs' => 'hidden',  'texte_propre' => 'text', 'email' => 'email', 'color' => 'color', 'phonefr' => 'tel', 'code_postal' => 'text', 'km' => 'number', 'adeli' => 'number'];
                     // if (isset($val['ALIAS'])) {
                     //     //si on connait cet alias on met son type dans add et on ajoute le use et on ajoute l'alias dans les attr
                     //     if (array_key_exists($val['ALIAS'], $tab_ALIAS) !== false) {
@@ -595,8 +333,8 @@ class CrudmickCommand extends Command
                         }
                     }
 
-                    //on ajoute dans $resOpt si on a un type fichier et required=false (pour pouvoir ne rien changer) pour l'envoie du formulaire
-                    if (isset($val['ALIAS'])) if ($val['ALIAS'] == 'fichier') $resOpt[] = "'data_class' => null,'required' => false";
+                    //on ajoute dans $resOpt si on a un type file et required=false (pour pouvoir ne rien changer) pour l'envoie du formulaire
+                    if (isset($val['ALIAS'])) if ($val['ALIAS'] == 'file') $resOpt[] = "'data_class' => null,'required' => false";
 
                     if ($field != 'id') {
                         $FT .= "\n->add('$field',$TYPE,['attr'=>[" . implode(',', $resAttr) . "]";
@@ -611,7 +349,7 @@ class CrudmickCommand extends Command
             $finalft = '<?php
 namespace App\Form;
 
-use App\Entity\\' . $E . ' ;
+use App\Entity\\' . $Entity . ' ;
 
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\FormBuilderInterface;
@@ -646,7 +384,7 @@ use Symfony\Component\OptionsResolver\OptionsResolver;' . "\n";
             }
 
 
-            $finalft .= 'class ' . $E . 'Type extends AbstractType
+            $finalft .= 'class ' . $Entity . 'Type extends AbstractType
 {
 public function buildForm(FormBuilderInterface $builder, array $AtypeOption)
 {
@@ -656,28 +394,21 @@ $builder';
 public function configureOptions(OptionsResolver $resolver)
 {
 $resolver->setDefaults([
-            \'data_class\' => ' . $E . '::class,
+            \'data_class\' => ' . $Entity . '::class,
         ]);
     }
 }
 ';
-
-
-
             if ($input->getOption('origin')) {
-                $dir = "/app/old/" .  date('Y-m-d_H-i-s') . '/' . $E;
-                @rename('/app/src/Form/' . $E . 'Type.php', $dir);
-                file_put_contents('/app/src/Form/' .  $E . 'Type.php', $finalft);
+                $dir = "/app/old/" .  date('Y-m-d_H-i-s') . '/' . $Entity;
+                @rename('/app/src/Form/' . $Entity . 'Type.php', $dir);
+                file_put_contents('/app/src/Form/' .  $Entity . 'Type.php', $finalft);
             } else {
-                file_put_contents('/app/crudmick/crud/' . $E . 'Type.php', $finalft);
+                file_put_contents('/app/crudmick/crud/' . $Entity . 'Type.php', $finalft);
             }
         } else {
             $io->error('Please get the name of entitie');
         }
-
-
-
-
         return Command::SUCCESS;
     }
 
@@ -687,7 +418,7 @@ $resolver->setDefaults([
      */
     private function getEffects()
     {
-        $class = 'App\Entity\\' . $this->E;
+        $class = 'App\Entity\\' . $this->Entity;
         $r = new \ReflectionClass(new $class); //property of class
         //array of search
         $aSupprimer = array('/**', '*/'); // for cleaning
@@ -727,17 +458,225 @@ $resolver->setDefaults([
         }
         $this->res = $res;
     }
+    private function createIndex()
+    {
+        $res = $this->res;
+        $Entity = $this->Entity;
+        $entity = strToLower($Entity);
+        $timestamptable = $this->timestamptable;
+        $html = $this->twigParser(file_get_contents($this->path . 'index.html.twig'), array('entity' => $entity, 'Entity' =>
+        $Entity, 'extends' => $res['id']['EXTEND']));
+        //code for sortable ATTR
+        if (isset($res['id']['ATTR']))
+            if ($this->searchInValue($res['id']['ATTR'], 'sortable') !== false)
+                $html = $this->twigParser($html, ['sortable' => "{% set list=findOneBy('sortable',{'entite':'$Entity'}) %}\n{% if list != null %}<input type='hidden' id='ex_sortable' value='{{list.Ordre}}'>\n{% endif %}<input entite='$Entity' id='save_sortable' type='hidden'>"]);
+
+        //loop on fields for create header of table
+        $entete = ''; //content head of table
+        foreach ($res as $field => $val) {
+            $no_index = false;
+            //verify show for index
+            if (isset($val['ATTR'])) $no_index = in_array('no_index', $val['ATTR']) ? true : false;
+            //if no_index jump this field
+            if (!$no_index) {
+                $entete .= "<th>";
+                //label or name for text field
+                $finentete = ucfirst($field);
+                if (isset($val['OPT'])) {
+                    if ($tete = $this->searchInValue($val['OPT'], 'label')) {
+                        $finentete = $tete;
+                    }
+                }
+                $entete .= $finentete . "</th>\n";
+            }
+        }
+        //parse index.html with headers
+        $html = $this->twigParser($html, ['entete' => $entete]);
+
+        //loop on fields for create row of table
+        $finalrow = ''; //content row of table
+        foreach ($res as $field => $val) {
+            $row = ''; //content temp row
+            $filters = ''; //content the TWIG filters
+            $no_index = false;
+            //verify show for index
+            if (isset($val['ATTR'])) $no_index = in_array('no_index', $val['ATTR']) ? true : false;
+            //if no_index jump this field
+            if (!$no_index) {
+                $Field = ucfirst($field);
+                //create TWIG filters
+                if (isset($val['TWIG'])) foreach ($val['TWIG'] as $twig) $filters .= "|" . $twig;
+
+                //if it's a relation field
+                if ($this->is_relation($val['AUTRE']) !== false) {
+                    $row .= "$Entity.$field|json_encode %}";
+                }
+
+                //if it's a choice
+                if (isset($val['OPT']))
+                    if ($valChoices = $this->searchInValue($val['OPT'], 'choices')) {
+                        //choices to array
+                        $choices = json_decode($valChoices);
+                        //string for content res
+                        $row .= "{{ $Entity.$field|json_encode }}";
+                    }
+                //if it's ALIAS
+                if (isset($val['ALIAS'])) {
+                    // file has ATTR file, text or picture or nothoing
+                    if ($val['ALIAS'] == 'file') {
+                        //get the type by ATTR with default text
+                        if (isset($val['ATTR'])) {
+                            $attr = explode('=>', $val['ATTR'][0]);
+                            $type = $attr[0];
+                        } else {
+                            $type = 'index_text';
+                        }
+                        //file ATTR type for show
+                        switch ($type) {
+                                //icon for picture
+                            case 'index_picture':
+                            case 'index_icon':
+                                $row .= "\n{%if $entity.$field %}\n<img src=\"{{asset('$field/$entity.$field')}}\"> \n{% endif %}"; // add html form
+                                break;
+                            case 'index_text':
+                            default:
+                                $row .= "{%if $Entity.$field %} <a class='bigpicture'   href=\"{{asset('/uploads/" . $field . "/'~" . $Entity . "." . $field . ")}}\">
+                                        <img src=\"{{asset('" . $field . "/'~" . $Entity . "." . $field . ")}}\"></a> {% endif %}";
+                                break;
+                        }
+                    }
+                    if ($val['ALIAS'] == 'ckeditor' || 'editorjs')
+                        $row .= "{{ $Entity.$field|striptags|u.truncate(200, '...', false)|cleanhtml$filters}}";
+                }
+                //timestamptable
+                if (in_array($field, $timestamptable))
+                    $row .= "{{ $Entity.$field is not empty ? $Entity.$field|date('d/m à H:i', 'Europe/Paris')$filters}}";
+                //for other
+                if (!$row) {
+                    $row .= "{{ $Entity.$field$filters}}";
+                }
+                //ADD row
+                $finalrow .= "\n<td>$row</td>";
+            }
+        }
+        //parse index.html with headers
+        $html = $this->twigParser($html, ['rows' => $finalrow]);
+        if ($this->input->getOption('origin')) {
+            @mkdir('/app/templates/' . $entity);
+            file_put_contents('/app/templates/' . $entity . '/index.html.twig', $html);
+        } else {
+            @mkdir('/app/crudmick/crud');
+            file_put_contents('/app/crudmick/crud/' . $Entity . '_index.html.twig', $html);
+        }
+    }
+
+    private function createType()
+    {
+        $res = $this->res;
+        $Entity = $this->Entity;
+        $entity = strToLower($Entity);
+        $timestamptable = $this->timestamptable;
+        $html = $this->twigParser(file_get_contents($this->path . 'type.php'), array('entity' => $entity, 'Entity' => $Entity, 'extends' => $res['id']['EXTEND']));
+        //ALIAS to type
+        $tab_ALIAS = ['file' => 'file', 'hidden' => 'hidden', 'radio' => 'radio', 'date' => 'date', 'password' => 'password', 'centimetre' => 'CentiMetre', 'metre' => 'metre', 'prix' => 'money', 'autocomplete' => 'text', 'ckeditor' => 'CKEditor', 'editorjs' => 'hidden',  'texte_propre' => 'text', 'email' => 'email', 'color' => 'color', 'phonefr' => 'tel', 'code_postal' => 'text', 'km' => 'number', 'adeli' => 'number'];
+        //loop on fields
+        $twigNew = []; // array for stock parser
+        $twigNew['form_rows'] = ''; //contains string for replace form_rows
+        //remove timestamptables
+        unset($res['updatedAt']);
+        unset($res['createdAt']);
+        unset($res['deletedAt']);
+        $adds = ' $builder'; //contents add of builder
+        $uses = ''; //for parse uses in php file
+        $collections = ''; //content collections for use
+        $biblio_use = []; //content uses
+        foreach ($res as $field => $val) {
+            $type = 'null'; //stock type in fcuntion of tab_ALIAS
+            $Field = ucfirst($field);
+            //if it's a relation field
+            if ($this->is_relation($val['AUTRE']) !== false) {
+                $collections .= "\nuse App\Entity\\" . $Entity . ";\n";
+            }
+            if ($field != 'id') {
+                //for use by ALIAS
+                if (isset($val['ALIAS']))
+                    if (!in_array(ucfirst($tab_ALIAS[$val['ALIAS']]), $biblio_use)) {
+                        $biblio_use[] = ucfirst($tab_ALIAS[$val['ALIAS']]);
+                        $type = ucfirst($tab_ALIAS[$val['ALIAS']]) . "Type::class";
+                    }
+                //for use by OPT
+                if (isset($val['OPT']))
+                    if ($values = $this->searchInValue($val['OPT'], 'choices')) {
+                        if (!in_array('Choice', $biblio_use)) {
+                            $biblio_use[] = 'Choice';
+                            $type = 'Choice' . "Type::class";
+                        }
+                    }
+
+                $adds .= "\n->add('$field',$type";
+                //for attributes
+                $attrs = [];
+                if (isset($val['ATTR'])) {
+                    foreach ($val['ATTR'] as $key => $value) {
+                        if (isset(explode('=>', $value)[1]))
+                            $attrs[] = "'" . explode('=>', $value)[0] . "'=>" . explode('=>', $value)[1];
+                    }
+                }
+                //for options
+                $opts = []; //contents opts
+                if (isset($val['OPT'])) {
+                    foreach ($val['OPT'] as $key => $value) {
+                        if (isset(explode('=>', $value)[1])) {
+                            //exception for choices
+                            if (explode('=>', $value)[0] == 'choices') {
+                                foreach (explode(',', substr(trim(explode('=>', $value)[1]), 1, -1)) as $choix)
+                                    $resChoices[] = $choix . "=>" . $choix;
+                                $opts[] = "'choices'=>[" . implode(',', $resChoices) . "]";
+                            } else
+                                $opts[] = "'" . explode('=>', $value)[0] . "'=>" . explode('=>', $value)[1];
+                        }
+                    }
+                }
+                //render
+                if (count($attrs) or count($opts)) $adds .= ',[';
+                if (count($attrs)) $adds .= "'attr'=>[" . implode(',', $attrs) . "]";
+                if (count($attrs) and count($opts)) $adds .= ',';
+                if (count($opts)) $adds .=  implode(',', $opts);
+                if (count($attrs) or count($opts)) $adds .= ']';
+                $adds .= ")";
+            }
+        }
+        //create uses
+        if ($collections) $uses .= $collections . "\nuse Symfony\Component\Form\Extension\Core\Type\CollectionType;\n";
+        foreach ($biblio_use as $biblio) {
+            if ($biblio == 'CKEditor')
+                $uses .= "use FOS\CKEditorBundle\Form\Type\\" . $biblio . "Type;\n";
+            else
+                $uses .= "use Symfony\Component\Form\Extension\Core\Type\\" . $biblio . "Type;\n";
+        }
+
+        //parse index.html with headers
+        $html = $this->twigParser($html, ['adds' => $adds, 'uses' => $uses]);
+        $html = \str_replace('namespace App\src\CMService\tpl;', 'namespace App\Form;', $html);
+        //create file
+        if ($this->input->getOption('origin'))
+            file_put_contents('/app/src/Form/' .  $Entity . 'Type.php', $html);
+        else
+            file_put_contents('/app/crudmick/crud/' . $Entity . 'Type.php', $html);
+        dd();
+    }
 
     private function createNew()
     {
         $res = $this->res;
-        $E = $this->E;
-        $e = strToLower($E);
+        $Entity = $this->Entity;
+        $entity = strToLower($Entity);
         $timestamptable = $this->timestamptable;
-        $html = $this->twigParser(file_get_contents($this->path . 'new.html.twig'), array('e' => $e, 'E' => $E, 'extends' => $res['id']['EXTEND']));
+        $html = $this->twigParser(file_get_contents($this->path . 'new.html.twig'), array('entity' => $entity, 'Entity' => $Entity, 'extends' => $res['id']['EXTEND']));
+
+        //loop on fields
         $twigNew = []; // array for stock parser
         $twigNew['form_rows'] = ''; //contains string for replace form_rows
-        //lopp on fields
         foreach ($res as $field => $val) {
             $Field = ucfirst($field);
             //jump timestamptables and id
@@ -767,14 +706,14 @@ $resolver->setDefaults([
                                 case 'new_picture':
                                     $size = explode('x', $attr[1]);
                                     $sizef = trim($size[0]) == 'auto' ? 'height=' . $size[1] . 'px' : 'width=' . $size[0] . 'px'; //render the html size
-                                    $twigNew['form_rows'] .= "\n" . "{%if $e.$field %}\n<img $sizef src=\"{{voir('$field/~$e.$field')}}\">\n{% endif %}"; // add html form
+                                    $twigNew['form_rows'] .= "\n" . "{%if $entity.$field %}\n<img $sizef src=\"{{voir('$field/~$entity.$field')}}\">\n{% endif %}"; // add html form
                                     break;
                                 case 'new_icon':
-                                    $twigNew['form_rows'] .= "\n" . "{%if $e.$field %}\n<img src=\"{{getico('$field/$e.$field')}}\"> \n{% endif %}"; // add html form
+                                    $twigNew['form_rows'] .= "\n" . "{%if $entity.$field %}\n<img src=\"{{getico('$field/$entity.$field')}}\"> \n{% endif %}"; // add html form
                                     break;
                                 case 'new_text':
                                 default:
-                                    $twigNew['form_rows'] .= "\n<label class='exNomFichier'>{{ $e.$field }}</label>";
+                                    $twigNew['form_rows'] .= "\n<label class='exNomfile'>{{ $entity.$field }}</label>";
                                     break;
                             }
                             $twigNew['form_rows'] .= "\n</div>\n";
@@ -783,34 +722,34 @@ $resolver->setDefaults([
                         if ($val['ALIAS'] == 'editorjs')  $twigNew['form_rows'] .= "<div id='editorjs'></div>";
                         //for autocomplete.js
                         if ($val['ALIAS'] == 'autocomplete')
-                            $twigNew['form_rows'] .= "<input type='hidden' class='autocomplete' data-id='$e" . "_" . "$field' value='{{autocomplete$Field}}'>";
+                            $twigNew['form_rows'] .= "<input type='hidden' class='autocomplete' data-id='$entity" . "_" . "$field' value='{{autocomplete$Field}}'>";
                     }
                 }
             }
         }
         $html = $this->twigParser($html, $twigNew);
         if ($this->input->getOption('origin')) {
-            @mkdir('/app/templates/' . $e);
-            file_put_contents('/app/templates/' . $e . '/new.html.twig', $html);
+            @mkdir('/app/templates/' . $entity);
+            file_put_contents('/app/templates/' . $entity . '/new.html.twig', $html);
         } else {
             @mkdir('/app/crudmick/crud');
-            file_put_contents('/app/crudmick/crud/' . $E . '_new.html.twig', $html);
+            file_put_contents('/app/crudmick/crud/' . $Entity . '_new.html.twig', $html);
         }
     }
     private function createController()
     {
         $res = $this->res;
-        $E = $this->E;
-        $e = strToLower($E);
+        $Entity = $this->Entity;
+        $entity = strToLower($Entity);
         $timestamptable = $this->timestamptable;
-        $html = $this->twigParser(file_get_contents($this->path . 'controller.php'), array('e' => $e, 'E' => $E, 'extends' => $res['id']['EXTEND']));
+        $html = $this->twigParser(file_get_contents($this->path . 'controller.php'), array('entity' => $entity, 'Entity' => $Entity, 'extends' => $res['id']['EXTEND']));
         //lop for autocomplete
         $autocompleteRender = '';
         foreach ($res as $field => $val) {
             $Field = ucfirst($field);
             if (isset($val['ALIAS'])) {
                 if ($val['ALIAS'] == 'autocomplete') {
-                    $autocompleteRender .= "'autocomplete$Field'=>\$functionEntitie->getAllOfFields('$e','$field'),";
+                    $autocompleteRender .= "'autocomplete$Field'=>\$functionEntitie->getAllOfFields('$entity','$field'),";
                 }
             }
         }
@@ -823,9 +762,9 @@ $resolver->setDefaults([
         }
         //create file
         if ($this->input->getOption('origin'))
-            file_put_contents('/app/src/Controller/' .  $E . 'Controller.php', $html);
+            file_put_contents('/app/src/Controller/' .  $Entity . 'Controller.php', $html);
         else
-            file_put_contents('/app/crudmick/crud/' . $E . 'Controller.php', $html);
+            file_put_contents('/app/crudmick/crud/' . $Entity . 'Controller.php', $html);
     }
 
     /**
@@ -839,8 +778,49 @@ $resolver->setDefaults([
     private function twigParser($html, $tab)
     {
         foreach ($tab as $key => $value) {
+            $html = str_replace('//¤' . $key . '¤', $value, $html); // that in first
             $html = str_replace('¤' . $key . '¤', $value, $html);
         }
         return $html;
+    }
+    /**
+     * Method searchInValue
+     *
+     * @param $array array 
+     * @param $keyOfValue the key of value, for example OPT=title=>test, the keyofvalue=title
+     *
+     * @return string return the value
+     */
+    private function searchInValue($array, $keyOfValue): string
+    {
+        foreach ($array as $k => $v) {
+            $val = strpos($v, '=>') ? explode('=>', $v)[0] : $v;
+            if ($val == $keyOfValue) {
+                $res = explode('=>', $v);
+                return end($res);
+                break;
+            }
+        }
+        return false;
+    }
+    /**
+     * Method is_relation
+     *
+     * @param $array array a array with key and value
+     *
+     * @return false or relation
+     */
+    private function is_relation($array)
+    {
+        $relationFind = false; //default value
+        $relations = ['onetoone', 'manytoone', 'onetomany', 'manytomany'];
+        foreach ($array as $value) {
+            foreach ($relations as $relation) {
+                if (strpos(strTolower($value), $relation) !== false) {
+                    $relationFind = $relations[in_array(strToLower($value), $relations)];
+                }
+            }
+        }
+        return $relationFind;
     }
 }
