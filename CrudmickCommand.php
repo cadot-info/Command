@@ -79,7 +79,6 @@ class CrudmickCommand extends Command
                     exit();
                 }
                 $this->createType();
-                dd();
                 $this->createController();
                 $this->createNew();
 
@@ -271,7 +270,7 @@ class CrudmickCommand extends Command
                     $resAttr = array(); //stock des attrs
                     $resOpt = array(); //stock des opts
                     //attribut unique pour le mask qui donne aussi le type
-                    $tab_ALIAS = ['file' => 'file', 'hidden' => 'hidden', 'radio' => 'radio', 'date' => 'date', 'password' => 'password', 'centimetre' => 'CentiMetre', 'metre' => 'metre', 'prix' => 'money', 'autocomplete' => 'text', 'ckeditor' => 'CKEditor', 'editorjs' => 'hidden',  'texte_propre' => 'text', 'email' => 'email', 'color' => 'color', 'phonefr' => 'tel', 'code_postal' => 'text', 'km' => 'number', 'adeli' => 'number'];
+                    $tab_ALIAS = ['file' => 'file', 'hidden' => 'hidden', 'radio' => 'radio', 'date' => 'date', 'password' => 'password', 'centimetre' => 'CentiMetre', 'metre' => 'metre', 'prix' => 'money', 'ckeditor' => 'CKEditor', 'editorjs' => 'hidden',  'texte_propre' => 'text', 'email' => 'email', 'color' => 'color', 'phonefr' => 'tel', 'code_postal' => 'text', 'km' => 'number', 'adeli' => 'number'];
                     // if (isset($val['ALIAS'])) {
                     //     //si on connait cet alias on met son type dans add et on ajoute le use et on ajoute l'alias dans les attr
                     //     if (array_key_exists($val['ALIAS'], $tab_ALIAS) !== false) {
@@ -512,7 +511,7 @@ $resolver->setDefaults([
 
                 //if it's a relation field
                 if ($this->is_relation($val['AUTRE']) !== false) {
-                    $row .= "$Entity.$field|json_encode %}";
+                    $row .= "{{ $Entity.$field|json_encode }}";
                 }
 
                 //if it's a choice
@@ -615,12 +614,11 @@ $resolver->setDefaults([
                 //for use by OPT
                 if (isset($val['OPT']))
                     if ($values = $this->searchInValue($val['OPT'], 'choices')) {
-                        if (!in_array('Choice', $biblio_use)) {
-                            $biblio_use[] = 'Choice';
-                            $type = 'Choice' . "Type::class";
-                        }
-                    }
+                        if (!in_array('Choice', $biblio_use))
 
+                            $biblio_use[] = 'Choice';
+                        $type = 'Choice' . "Type::class";
+                    }
                 $adds .= "\n->add('$field',$type";
                 //for attributes
                 $attrs = [];
@@ -662,15 +660,15 @@ $resolver->setDefaults([
         //create uses
         if ($collections) $uses .= $collections . "\nuse Symfony\Component\Form\Extension\Core\Type\CollectionType;\n";
         foreach ($biblio_use as $biblio) {
-            //if ($biblio == 'CKEditor')
-            //    $uses .= "use FOS\CKEditorBundle\Form\Type\\" . $biblio . "Type;\n";
-            //else
-            $uses .= "use Symfony\Component\Form\Extension\Core\Type\\" . $biblio . "Type;\n";
+            if ($biblio == 'CKEditor')
+                $uses .= "use FOS\CKEditorBundle\Form\Type\\" . $biblio . "Type;\n";
+            else
+                $uses .= "use Symfony\Component\Form\Extension\Core\Type\\" . $biblio . "Type;\n";
         }
 
         //parse type.php with headers
         $html = $this->twigParser($html, ['adds' => $adds, 'uses' => $uses]);
-        $html = \str_replace('namespace App\src\CMService\tpl;', 'namespace App\Form;', $html);
+        $html = \str_replace('namespace App\CMService\tpl;', 'namespace App\Form;', $html);
         //create file
         if ($this->input->getOption('origin'))
             file_put_contents('/app/src/Form/' .  $Entity . 'Type.php', $html);
@@ -731,10 +729,10 @@ $resolver->setDefaults([
                             $twigNew['form_rows'] .= "\n</div>\n";
                         }
                         //for editorjs
-                        if ($val['ALIAS'] == 'editorjs')  $twigNew['form_rows'] .= "<div id='editorjs'></div>";
+                        if ($val['ALIAS'] == 'editorjs')  $twigNew['form_rows'] .= "<div id='editorjs'></div>\n";
                         //for autocomplete.js
                         if ($val['ALIAS'] == 'autocomplete')
-                            $twigNew['form_rows'] .= "<input type='hidden' class='autocomplete' data-id='$entity" . "_" . "$field' value='{{autocomplete$Field}}'>";
+                            $twigNew['form_rows'] .= "<input type='hidden' class='autocomplete' data-id='$entity" . "_" . "$field' value='{{autocomplete$Field}}'>\n";
                     }
                 }
             }
