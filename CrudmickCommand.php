@@ -525,7 +525,7 @@ $resolver->setDefaults([
                 //if it's ALIAS
                 if (isset($val['ALIAS'])) {
                     // file has ATTR file, text or picture or nothoing
-                    if ($val['ALIAS'] == 'file') {
+                    if ($val['ALIAS'] == 'file' || $val['ALIAS'] == 'collection') {
                         //get the type by ATTR with default text
                         if (isset($val['ATTR'])) {
                             $attr = explode('=>', $val['ATTR'][0]);
@@ -533,21 +533,20 @@ $resolver->setDefaults([
                         } else {
                             $type = 'index_text';
                         }
-                        //file ATTR type for show
-                        switch ($type) {
-                                //icon for picture
-                            case 'index_picture':
-                            case 'index_icon':
-                                $row .= "\n{%if $entity.$field %}\n<img src=\"{{asset('$field/$entity.$field')}}\"> \n{% endif %}"; // add html form
-                                break;
-                            case 'index_text':
-                            default:
-                                $row .= "{%if $Entity.$field %} <a class='bigpicture'   href=\"{{asset('/uploads/" . $field . "/'~" . $Entity . "." . $field . ")}}\">
-                                        <img src=\"{{asset('" . $field . "/'~" . $Entity . "." . $field . ")}}\"></a> {% endif %}";
-                                break;
-                        }
+                        if ($val['ALIAS'] == 'file') //file ATTR type for show
+                            switch ($type) {
+                                    //icon for picture
+                                case 'index_picture':
+                                case 'index_icon':
+                                    $row .= "\n{%if $entity.$field %}\n<img src=\"{{asset('$field/$entity.$field')}}\"> \n{% endif %}"; // add html form
+                                    break;
+                                case 'index_text':
+                                default:
+                                    $row .= "{%if $Entity.$field %} <a class='bigpicture'   href=\"{{asset('/uploads/" . $field . "/'~" . $Entity . "." . $field . ")}}\"><img src=\"{{asset('" . $field . "/'~" . $Entity . "." . $field . ")}}\"></a> {% endif %}";
+                                    break;
+                            }
                     }
-                    if ($val['ALIAS'] == 'ckeditor' || 'editorjs')
+                    if ($val['ALIAS'] == 'ckeditor' || $val['ALIAS'] == 'editorjs')
                         $row .= "{{ $Entity.$field|striptags|u.truncate(200, '...', false)|cleanhtml$filters}}";
                 }
                 //timestamptable
@@ -596,32 +595,39 @@ $resolver->setDefaults([
         foreach ($res as $field => $val) {
             $type = 'null'; //stock type in fcuntion of tab_ALIAS
             $Field = ucfirst($field);
+            $attrs = []; //array of attributes
+            $opts = []; //array of options
             //if it's a relation field
             if ($this->is_relation($val['AUTRE']) !== false) {
                 //determination of entity for add in use
                 foreach ($val['AUTRE'] as $key => $value) {
                     $entityRelation = ($SF->chaine_extract($value, 'targetEntity=', '::class'));
-                    if ($entityRelation) $collections .= "\nuse App\Entity\\" . $entityRelation . ";\n";
+                    if ($val['ALIAS'] == 'collection') {
+                        $type = "CollectionType::class";
+                        $opts[] = "'entry_type' => FichierType::class,'entry_options' => ['label' => false],'allow_add' => true,'by_reference' => false,'allow_delete' => true,'required' => false,";
+                        $attrs[] = "'class' => 'collection'";
+                        $collections .= "\nuse App\Form\\$entityRelation" . "Type;\n";
+                    } else
+                    if ($entityRelation) $collections .= "\nuse App\Entity\\$entityRelation;\n";
                 }
             }
             if ($field != 'id') {
                 //for use by ALIAS
                 if (isset($val['ALIAS']))
-                    if (!in_array(ucfirst($tab_ALIAS[$val['ALIAS']]), $biblio_use)) {
-                        $biblio_use[] = ucfirst($tab_ALIAS[$val['ALIAS']]);
-                        $type = ucfirst($tab_ALIAS[$val['ALIAS']]) . "Type::class";
-                    }
+                    if (isset($tab_ALIAS[$val['ALIAS']]))
+                        if (!in_array(ucfirst($tab_ALIAS[$val['ALIAS']]), $biblio_use)) {
+                            $biblio_use[] = ucfirst($tab_ALIAS[$val['ALIAS']]);
+                            $type = ucfirst($tab_ALIAS[$val['ALIAS']]) . "Type::class";
+                        }
                 //for use by OPT
                 if (isset($val['OPT']))
                     if ($values = $this->searchInValue($val['OPT'], 'choices')) {
                         if (!in_array('Choice', $biblio_use))
-
                             $biblio_use[] = 'Choice';
                         $type = 'Choice' . "Type::class";
                     }
                 $adds .= "\n->add('$field',$type";
                 //for attributes
-                $attrs = [];
                 if (isset($val['ATTR'])) {
                     foreach ($val['ATTR'] as $key => $value) {
                         if (isset(explode('=>', $value)[1]))
@@ -629,7 +635,6 @@ $resolver->setDefaults([
                     }
                 }
                 //for options
-                $opts = []; //contents opts
                 if (isset($val['OPT'])) {
                     foreach ($val['OPT'] as $key => $value) {
                         if (isset(explode('=>', $value)[1])) {
@@ -768,7 +773,7 @@ $resolver->setDefaults([
             $html = $this->twigParser($html, array('autocompleteRender' => substr($autocompleteRender, 0, -1), 'autocompleteService' => 'use App\CMService\FunctionEntitie'));
             //specific replacement for php for include Service
             $html = str_replace('new(Request $request)', 'new(Request $request,FunctionEntitie $functionEntitie)', $html);
-            $html = str_replace('edit(Request $request)', 'edit(Request $request,FunctionEntitie $functionEntitie)', $html);
+            $html = str_replace('edit(Request $request', 'edit(Request $request,FunctionEntitie $functionEntitie', $html);
         }
         //create file
         if ($this->input->getOption('origin'))
