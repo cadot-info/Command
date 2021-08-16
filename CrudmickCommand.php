@@ -5,6 +5,7 @@
 
 namespace App\CMCommand;
 
+use App\CMService\String_functions;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Style\SymfonyStyle;
@@ -77,14 +78,16 @@ class CrudmickCommand extends Command
                     $io->error('Please get a PARTIE for id (example: PARTIE=admin, used by controller)');
                     exit();
                 }
+                $this->createType();
+                dd();
                 $this->createController();
                 $this->createNew();
 
-                $res = $this->res;
-                $this->createIndex();
-                $this->createType();
-                dd();
 
+                $this->createIndex();
+
+                dd();
+                $res = $this->res;
 
                 //creation de show
                 $show = "{% extends '"  . $res['id']['EXTEND'] . "' %}";
@@ -422,8 +425,8 @@ $resolver->setDefaults([
         $r = new \ReflectionClass(new $class); //property of class
         //array of search
         $aSupprimer = array('/**', '*/'); // for cleaning
-        $mCrud = array('pour éviter retour false', 'ATTR', 'PARTIE', 'EXTEND', 'OPT', 'TPL', 'TWIG', 'ALIAS'); // array for create
-        $FUnique = array('EXTEND', 'PARTIE', 'ALIAS'); //array with a uniq value
+        $mCrud = array('pour éviter retour false', 'ATTR', 'PARTIE', 'EXTEND', 'OPT', 'TPL', 'TWIG', 'ALIAS', 'RELATION', 'COLLECTION'); // array for create
+        $FUnique = array('EXTEND', 'PARTIE', 'ALIAS', 'RELATION', 'COLLECTION'); //array with a uniq value
         foreach ($r->getProperties() as $property) {
             $name = $property->getName();
             $docs = (explode("\n", $property->getDocComment()));
@@ -572,6 +575,7 @@ $resolver->setDefaults([
 
     private function createType()
     {
+        $SF = new String_functions(); //tools for string
         $res = $this->res;
         $Entity = $this->Entity;
         $entity = strToLower($Entity);
@@ -595,7 +599,11 @@ $resolver->setDefaults([
             $Field = ucfirst($field);
             //if it's a relation field
             if ($this->is_relation($val['AUTRE']) !== false) {
-                $collections .= "\nuse App\Entity\\" . $Entity . ";\n";
+                //determination of entity for add in use
+                foreach ($val['AUTRE'] as $key => $value) {
+                    $entityRelation = ($SF->chaine_extract($value, 'targetEntity=', '::class'));
+                    if ($entityRelation) $collections .= "\nuse App\Entity\\" . $entityRelation . ";\n";
+                }
             }
             if ($field != 'id') {
                 //for use by ALIAS
@@ -629,11 +637,16 @@ $resolver->setDefaults([
                         if (isset(explode('=>', $value)[1])) {
                             //exception for choices
                             if (explode('=>', $value)[0] == 'choices') {
-                                foreach (explode(',', substr(trim(explode('=>', $value)[1]), 1, -1)) as $choix)
-                                    $resChoices[] = $choix . "=>" . $choix;
-                                $opts[] = "'choices'=>[" . implode(',', $resChoices) . "]";
-                            } else
-                                $opts[] = "'" . explode('=>', $value)[0] . "'=>" . explode('=>', $value)[1];
+                                $resChoices = [];
+                                //for only value
+                                if (substr_count($value, '=>') == 1) {
+                                    foreach (explode(',', substr(trim(explode('=>', $value)[1]), 1, -1)) as $choix) {
+                                        $resChoices[] = $choix . "=>" . $choix;
+                                    }
+                                    $opts[] = "'choices'=>[" . implode(',', $resChoices) . "]";
+                                } else //for key and value
+                                    $opts[] =  str_replace("choices=>", "'choices'=>[", $value) . "]";
+                            }
                         }
                     }
                 }
@@ -649,13 +662,13 @@ $resolver->setDefaults([
         //create uses
         if ($collections) $uses .= $collections . "\nuse Symfony\Component\Form\Extension\Core\Type\CollectionType;\n";
         foreach ($biblio_use as $biblio) {
-            if ($biblio == 'CKEditor')
-                $uses .= "use FOS\CKEditorBundle\Form\Type\\" . $biblio . "Type;\n";
-            else
-                $uses .= "use Symfony\Component\Form\Extension\Core\Type\\" . $biblio . "Type;\n";
+            //if ($biblio == 'CKEditor')
+            //    $uses .= "use FOS\CKEditorBundle\Form\Type\\" . $biblio . "Type;\n";
+            //else
+            $uses .= "use Symfony\Component\Form\Extension\Core\Type\\" . $biblio . "Type;\n";
         }
 
-        //parse index.html with headers
+        //parse type.php with headers
         $html = $this->twigParser($html, ['adds' => $adds, 'uses' => $uses]);
         $html = \str_replace('namespace App\src\CMService\tpl;', 'namespace App\Form;', $html);
         //create file
@@ -663,7 +676,6 @@ $resolver->setDefaults([
             file_put_contents('/app/src/Form/' .  $Entity . 'Type.php', $html);
         else
             file_put_contents('/app/crudmick/crud/' . $Entity . 'Type.php', $html);
-        dd();
     }
 
     private function createNew()
