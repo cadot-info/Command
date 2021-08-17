@@ -511,7 +511,7 @@ $resolver->setDefaults([
 
                 //if it's a relation field
                 if ($this->is_relation($val['AUTRE']) !== false) {
-                    $row .= "{{ $Entity.$field|json_encode }}";
+                    $row .= "\n<td>{% for item in $Entity.$field %}{{ item }},{% endfor %}";
                 }
 
                 //if it's a choice
