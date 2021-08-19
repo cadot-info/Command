@@ -37,7 +37,7 @@ class CrudmickCommand extends Command
 {
     protected static $defaultName = 'crudmick:generateCrud';
     protected static $defaultDescription = 'Generate beautify Crud from doctrine entity';
-    protected $path = 'src/CMService/tpl/'; //path of tpl
+    protected $path = 'crudmick/tpl/'; //path of tpl
     private $Entity;
     private $timestamptable;
     private $res;
@@ -511,7 +511,7 @@ $resolver->setDefaults([
 
                 //if it's a relation field
                 if ($this->is_relation($val['AUTRE']) !== false) {
-                    $row .= "\n<td>{% for item in $Entity.$field %}{{ item }},{% endfor %}";
+                    $row .= "\n{% for item in $Entity.$field %}{{ item }},{% endfor %}";
                 }
 
                 //if it's a choice
@@ -604,9 +604,13 @@ $resolver->setDefaults([
                     $entityRelation = ($SF->chaine_extract($value, 'targetEntity=', '::class'));
                     if ($val['ALIAS'] == 'collection') {
                         $type = "CollectionType::class";
-                        $opts[] = "'entry_type' => FichierType::class,'entry_options' => ['label' => false],'allow_add' => true,'by_reference' => false,'allow_delete' => true,'required' => false,";
+                        $opts[] = "'entry_type' => $entityRelation" . "Type::class,'entry_options' => ['label' => false],'allow_add' => true,'by_reference' => false,'allow_delete' => true,'required' => false,";
                         $attrs[] = "'class' => 'collection'";
                         $collections .= "\nuse App\Form\\$entityRelation" . "Type;\n";
+                        //clone Fichiertype and parse
+                        file_put_contents("src/Form/$entityRelation" . "Type.php", $this->twigParser(file_get_contents('crudmick/php/fichier/FichierType.php'), array('fichier' => $entityRelation, 'Fichier' => ucfirst($entityRelation))));
+                        file_put_contents("src/Repository/$entityRelation" . "Repository.php", $this->twigParser(file_get_contents('crudmick/php/fichier/FichierRepository.php'), array('fichier' => $entityRelation, 'Fichier' => ucfirst($entityRelation))));
+                        file_put_contents("src/Entity/$entityRelation" . ".php", $this->twigParser(file_get_contents('crudmick/php/fichier/Fichier.php'), array('fichier' => $entityRelation, 'Fichier' => ucfirst($entityRelation), 'extends' => $res['id']['EXTEND'])));
                     } else
                     if ($entityRelation) $collections .= "\nuse App\Entity\\$entityRelation;\n";
                 }
@@ -673,7 +677,6 @@ $resolver->setDefaults([
 
         //parse type.php with headers
         $html = $this->twigParser($html, ['adds' => $adds, 'uses' => $uses]);
-        $html = \str_replace('namespace App\CMService\tpl;', 'namespace App\Form;', $html);
         //create file
         if ($this->input->getOption('origin'))
             file_put_contents('/app/src/Form/' .  $Entity . 'Type.php', $html);
