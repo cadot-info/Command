@@ -62,7 +62,6 @@ class CrudmickCommand extends Command
         $this->input = $input;
         $this->Entity = $Entity;
         $this->timestamptable = $timestamptable;
-
         //data of entity bu reflection class
         if ($Entity) {
             if (!file_Exists('/app/src/Entity/' . $Entity . '.php'))
@@ -468,6 +467,14 @@ $resolver->setDefaults([
         $timestamptable = $this->timestamptable;
         $html = $this->twigParser(file_get_contents($this->path . 'index.html.twig'), array('entity' => $entity, 'Entity' =>
         $Entity, 'extends' => $res['id']['EXTEND']));
+        //actions show or hide
+        $actions = ['no_action_show', 'no_action_clone', 'no_action_delete', 'no_action_edit', 'no_action_new'];
+        foreach ($actions as $action) {
+            if ($this->searchInValue($res['id']['AUTRE'], $action))
+                $html = $this->twigParser($html, array($action => 'style="display:none;"'));
+            else
+                $html = $this->twigParser($html, array($action => ''));
+        }
         //code for sortable ATTR
         if (isset($res['id']['ATTR']))
             if ($this->searchInValue($res['id']['ATTR'], 'sortable') !== false)
