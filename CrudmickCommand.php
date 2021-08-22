@@ -637,6 +637,7 @@ $resolver->setDefaults([
                             $biblio_use[] = 'Choice';
                         $type = 'Choice' . "Type::class";
                     }
+
                 $adds .= "\n->add('$field',$type";
                 //for attributes
                 if (isset($val['ATTR'])) {
@@ -649,17 +650,22 @@ $resolver->setDefaults([
                 if (isset($val['OPT'])) {
                     foreach ($val['OPT'] as $key => $value) {
                         if (isset(explode('=>', $value)[1])) {
+                            $val = explode('=>', $value);
                             //exception for choices
-                            if (explode('=>', $value)[0] == 'choices') {
+                            if ($val[0] == 'choices') {
                                 $resChoices = [];
                                 //for only value
                                 if (substr_count($value, '=>') == 1) {
-                                    foreach (explode(',', substr(trim(explode('=>', $value)[1]), 1, -1)) as $choix) {
+                                    foreach (explode(',', substr(trim($val[1]), 1, -1)) as $choix) {
                                         $resChoices[] = $choix . "=>" . $choix;
                                     }
                                     $opts[] = "'choices'=>[" . implode(',', $resChoices) . "]";
                                 } else //for key and value
                                     $opts[] =  str_replace("choices=>", "'choices'=>[", $value) . "]";
+                            }
+                            //for others option
+                            else {
+                                $opts[] = "'$val[0]'=>$val[1]";
                             }
                         }
                     }
