@@ -25,7 +25,7 @@ The option minimum is:
 - PARTIE for firewall (example: PARTIE=admin get add admin in route for the controller )
 
 The fields:
-- file: for upload by ajax a simple file 
+- uploadjs: for upload by ajax a simple file 
     - ATTR= for many show, template_... (example: new_text, index_picture...)
         - text: for show text
         - picture: widthxheight, exaple (autox100, 100x300 ...)
@@ -152,7 +152,7 @@ class CrudmickCommand extends Command
                         //si on a des ALIAS
                         if (isset($val['ALIAS'])) {
                             //on commence par ALIAS file
-                            if ($val['ALIAS'] == 'file') {
+                            if ($val['ALIAS'] == 'uploadjs') {
                                 //on cherche si on a un type de file
                                 $typefile = 'texte'; // valeur par défaut pour file
                                 if (isset($val['ATTR']))
@@ -335,7 +335,7 @@ class CrudmickCommand extends Command
                     }
 
                     //on ajoute dans $resOpt si on a un type file et required=false (pour pouvoir ne rien changer) pour l'envoie du formulaire
-                    if (isset($val['ALIAS'])) if ($val['ALIAS'] == 'file') $resOpt[] = "'data_class' => null,'required' => false";
+                    if (isset($val['ALIAS'])) if ($val['ALIAS'] == 'uploadjs') $resOpt[] = "'data_class' => null,'required' => false";
 
                     if ($field != 'id') {
                         $FT .= "\n->add('$field',$TYPE,['attr'=>[" . implode(',', $resAttr) . "]";
@@ -532,7 +532,7 @@ $resolver->setDefaults([
                 //if it's ALIAS
                 if (isset($val['ALIAS'])) {
                     // file has ATTR file, text or picture or nothoing
-                    if ($val['ALIAS'] == 'file' || $val['ALIAS'] == 'collection') {
+                    if ($val['ALIAS'] == 'uploadjs' || $val['ALIAS'] == 'collection') {
                         //get the type by ATTR with default text
                         if (isset($val['ATTR'])) {
                             $attr = explode('=>', $val['ATTR'][0]);
@@ -540,7 +540,7 @@ $resolver->setDefaults([
                         } else {
                             $type = 'index_text';
                         }
-                        if ($val['ALIAS'] == 'file') //file ATTR type for show
+                        if ($val['ALIAS'] == 'uploadjs') //file ATTR type for show
                             switch ($type) {
                                     //icon for picture
                                 case 'index_picture':
@@ -549,7 +549,7 @@ $resolver->setDefaults([
                                     break;
                                 case 'index_text':
                                 default:
-                                    $row .= "{%if $Entity.$field %} <a class='bigpicture'   href=\"{{asset('/uploads/" . $field . "/'~" . $Entity . "." . $field . ")}}\"><img src=\"{{asset('" . $field . "/'~" . $Entity . "." . $field . ")}}\"></a> {% endif %}";
+                                    $row .= "{%if $Entity.$field %} <a class='bigpicture'   href=\"{{asset('/uploads/" . $field . "/'~" . $Entity . "." . $field . ")}}\"><img style='max-width:33%;' src=\"{{asset('/uploads/" . $field . "/'~" . $Entity . "." . $field . ")}}\"></a> {% endif %}";
                                     break;
                             }
                     }
@@ -564,7 +564,7 @@ $resolver->setDefaults([
                     $row .= "{{ $Entity.$field$filters}}";
                 }
                 //ADD row
-                $finalrow .= "\n<td>$row</td>";
+                $finalrow .= "\n<td style='cursor:move;' >$row</td>";
             }
         }
         //parse index.html with headers
@@ -599,6 +599,7 @@ $resolver->setDefaults([
         $uses = ''; //for parse uses in php file
         $collections = ''; //content collections for use
         $biblio_use = []; //content uses
+        $numUpload = 0; //counter for file name
         foreach ($res as $field => $val) {
             $type = 'null'; //stock type in fcuntion of tab_ALIAS
             $Field = ucfirst($field);
@@ -614,14 +615,23 @@ $resolver->setDefaults([
                         $opts[] = "'entry_type' => $entityRelation" . "Type::class,'entry_options' => ['label' => false],'allow_add' => true,'by_reference' => false,'allow_delete' => true,'required' => false,";
                         $attrs[] = "'class' => 'collection'";
                         $collections .= "\nuse App\Form\\$entityRelation" . "Type;\n";
-                        //clone Fichiertype and parse
-                        file_put_contents("src/Form/$entityRelation" . "Type.php", $this->twigParser(file_get_contents('crudmick/php/fichier/FichierType.php'), array('fichier' => $entityRelation, 'Fichier' => ucfirst($entityRelation))));
-                        file_put_contents("src/Repository/$entityRelation" . "Repository.php", $this->twigParser(file_get_contents('crudmick/php/fichier/FichierRepository.php'), array('fichier' => $entityRelation, 'Fichier' => ucfirst($entityRelation))));
-                        file_put_contents("src/Entity/$entityRelation" . ".php", $this->twigParser(file_get_contents('crudmick/php/fichier/Fichier.php'), array('fichier' => $entityRelation, 'Fichier' => ucfirst($entityRelation), 'extends' => $res['id']['EXTEND'])));
                     } else
                     if ($entityRelation) $collections .= "\nuse App\Entity\\$entityRelation;\n";
                 }
             }
+            if (isset($val['ALIAS']))
+                if ($val['ALIAS'] == 'uploadjs') {
+                    $nUpload = $numUpload == 0 ? '' : \strval($numUpload);
+                    //create files for upload
+                    file_put_contents("src/Form/CM/Upload$nUpload" . "Type.php", $this->twigParser(file_get_contents('crudmick/php/upload/UploadType.php'), array('upload' => "upload$nUpload", 'Upload' => "Upload$nUpload")));
+                    file_put_contents("src/Repository/CM/Upload$nUpload" . "Repository.php", $this->twigParser(file_get_contents('crudmick/php/upload/UploadRepository.php'), array('upload' => "upload$nUpload", 'Upload' => "Upload$nUpload")));
+                    file_put_contents("src/Entity/CM/Upload$nUpload" . ".php", $this->twigParser(file_get_contents('crudmick/php/upload/Upload.php'), array('upload' => "upload$nUpload", 'Upload' => "Upload$nUpload", 'extends' => $res['id']['EXTEND'])));
+                    $type = "Upload$nUpload" . "Type::class";
+                    $uses .= "use App\Form\CM\Upload$nUpload" . "Type;\n";
+                    $opts[] = "'mapped' => false";
+                    $numUpload += 1;
+                }
+
             if ($field != 'id') {
                 //for use by ALIAS
                 if (isset($val['ALIAS']))
@@ -723,7 +733,7 @@ $resolver->setDefaults([
                     if (isset($val['ALIAS'])) {
                         //ALIAS file
                         // he has ATTR file, text or picture
-                        if ($val['ALIAS'] == 'file') {
+                        if ($val['ALIAS'] == 'uploadjs') {
                             $twigNew['form_rows'] .= '<div class="form-group">';
                             //get the type by ATTR with default text
                             if (isset($val['ATTR'])) {
