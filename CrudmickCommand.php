@@ -5,6 +5,7 @@
 
 namespace App\CMCommand;
 
+use App\CMService\FileFunctions;
 use App\CMService\String_functions;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputOption;
@@ -50,7 +51,8 @@ class CrudmickCommand extends Command
         $this
             ->setDescription(self::$defaultDescription)
             ->addArgument('entitie', InputArgument::OPTIONAL, 'name of entitie')
-            ->addOption('origin', null, InputOption::VALUE_NONE, 'for write Controller and templates in your app directly');
+            ->addOption('origin', null, InputOption::VALUE_NONE, 'for write Controller and templates in your app directly')
+            ->addOption('clean', null, InputOption::VALUE_NONE, 'for remove CM directories in your app directly');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -67,6 +69,19 @@ class CrudmickCommand extends Command
             if (!file_Exists('/app/src/Entity/' . $Entity . '.php'))
                 $io->error("This entity don't exist in /app/src/Entity");
             else {
+                if ($input->getOption('clean')) {
+                    $ff = new FileFunctions();
+                    //remove old files
+                    $ff->deletedir('src/Controller/CM');
+                    $ff->deletedir('src/Form/CM');
+                    $ff->deletedir('src/Repository/CM');
+                    $ff->deletedir('src/Entity/CM');
+                }
+                mkdir('src/Controller/CM');
+                mkdir('src/Form/CM');
+                mkdir('src/Repository/CM');
+                mkdir('src/Entity/CM');
+
                 $this->getEffects(); // $res has many options (attr,opt,twig ... autre) of entity necessary for create
                 //minimum options for crudmick
                 if (!isset($this->res['id']['EXTEND'])) {
@@ -151,10 +166,10 @@ class CrudmickCommand extends Command
         <hr>";
                         //si on a des ALIAS
                         if (isset($val['ALIAS'])) {
-                            //on commence par ALIAS file
+                            //on commence par ALIAS upoloadjs
                             if ($val['ALIAS'] == 'uploadjs') {
-                                //on cherche si on a un type de file
-                                $typefile = 'texte'; // valeur par défaut pour file
+                                //on cherche si on a un type de uploadjs
+                                $typefile = 'texte'; // valeur par défaut pour uploadjs
                                 if (isset($val['ATTR']))
                                     foreach ($val['ATTR'] as $attribu) {
                                         $tabfile = explode('=>', $attribu);
@@ -209,9 +224,9 @@ class CrudmickCommand extends Command
                             if (isset($val['ALIAS']))
                                 if ($val['ALIAS'] == 'ckeditor' or $val['ALIAS'] == 'editorjs')
                                     $show .= '|cleanhtml';
-                            //on ferme pour tous les types sauf file
+                            //on ferme pour tous les types sauf uploadjs
                             if (isset($val['ALIAS'])) {
-                                if ($val['ALIAS'] != 'file') {
+                                if ($val['ALIAS'] != 'uploadjs') {
                                     $show .= "}}";
                                 }
                             } else {
@@ -269,30 +284,9 @@ class CrudmickCommand extends Command
                     $resAttr = array(); //stock des attrs
                     $resOpt = array(); //stock des opts
                     //attribut unique pour le mask qui donne aussi le type
-                    $tab_ALIAS = ['file' => 'file', 'hidden' => 'hidden', 'radio' => 'radio', 'date' => 'date', 'password' => 'password', 'centimetre' => 'CentiMetre', 'metre' => 'metre', 'prix' => 'money', 'ckeditor' => 'CKEditor', 'editorjs' => 'hidden',  'texte_propre' => 'text', 'email' => 'email', 'color' => 'color', 'phonefr' => 'tel', 'code_postal' => 'text', 'km' => 'number', 'adeli' => 'number'];
-                    // if (isset($val['ALIAS'])) {
-                    //     //si on connait cet alias on met son type dans add et on ajoute le use et on ajoute l'alias dans les attr
-                    //     if (array_key_exists($val['ALIAS'], $tab_ALIAS) !== false) {
-                    //         $TYPE = ucfirst($tab_ALIAS[$val['ALIAS']]) . "Type::class";
-                    //         $resAttr[] = "'data-inputmask' => \"'alias': '" . $val['ALIAS'] . "'\"";
-                    //         if ($tab_ALIAS[$val['ALIAS']] == 'money') {
-                    //             $resAttr[] = "'divisor' => 100";
-                    //         }
-                    //         //on ajoute le type dans les use si pas existant
-                    //         if (!in_array(ucfirst($tab_ALIAS[$val['ALIAS']]), $biblio_use)) {
-                    //             $biblio_use[] = ucfirst($tab_ALIAS[$val['ALIAS']]);
-                    //         }
-                    //     } else {
-                    //         //sinon on met juste le type dans add
-                    //         $TYPE = $field;
-                    //     }
-                    //     //pour editorjs
-                    //     if ($val['ALIAS'] == 'editorjs') $resAttr[] = "'class'=>'editorjs'";
-                    // }
-
+                    $tab_ALIAS = ['uploadjs' => 'file', 'hidden' => 'hidden', 'radio' => 'radio', 'date' => 'date', 'password' => 'password', 'centimetre' => 'CentiMetre', 'metre' => 'metre', 'prix' => 'money', 'ckeditor' => 'CKEditor', 'editorjs' => 'hidden',  'texte_propre' => 'text', 'email' => 'email', 'color' => 'color', 'phonefr' => 'tel', 'code_postal' => 'text', 'km' => 'number', 'adeli' => 'number'];
 
                     //travail sur ATTR
-
                     if (isset($val['ATTR'])) {
                         foreach ($val['ATTR'] as $attr) {
                             //si on a une config par =>
@@ -334,7 +328,7 @@ class CrudmickCommand extends Command
                         }
                     }
 
-                    //on ajoute dans $resOpt si on a un type file et required=false (pour pouvoir ne rien changer) pour l'envoie du formulaire
+                    //on ajoute dans $resOpt si on a un type uploadjs et required=false (pour pouvoir ne rien changer) pour l'envoie du formulaire
                     if (isset($val['ALIAS'])) if ($val['ALIAS'] == 'uploadjs') $resOpt[] = "'data_class' => null,'required' => false";
 
                     if ($field != 'id') {
@@ -531,7 +525,7 @@ $resolver->setDefaults([
                     }
                 //if it's ALIAS
                 if (isset($val['ALIAS'])) {
-                    // file has ATTR file, text or picture or nothoing
+                    // uploadjs has ATTR text or picture or nothing
                     if ($val['ALIAS'] == 'uploadjs' || $val['ALIAS'] == 'collection') {
                         //get the type by ATTR with default text
                         if (isset($val['ATTR'])) {
@@ -540,7 +534,7 @@ $resolver->setDefaults([
                         } else {
                             $type = 'index_text';
                         }
-                        if ($val['ALIAS'] == 'uploadjs') //file ATTR type for show
+                        if ($val['ALIAS'] == 'uploadjs') //uploadjs ATTR type for show
                             switch ($type) {
                                     //icon for picture
                                 case 'index_picture':
@@ -553,8 +547,10 @@ $resolver->setDefaults([
                                     break;
                             }
                     }
-                    if ($val['ALIAS'] == 'ckeditor' || $val['ALIAS'] == 'editorjs')
+                    if ($val['ALIAS'] == 'ckeditor')
                         $row .= "{{ $Entity.$field|striptags|u.truncate(200, '...', false)|cleanhtml$filters}}";
+                    if ($val['ALIAS'] == 'editorjs')
+                        $row .= "texte";
                 }
                 //timestamptable
                 if (in_array($field, $timestamptable))
@@ -587,7 +583,7 @@ $resolver->setDefaults([
         $timestamptable = $this->timestamptable;
         $html = $this->twigParser(file_get_contents($this->path . 'type.php'), array('entity' => $entity, 'Entity' => $Entity, 'extends' => $res['id']['EXTEND']));
         //ALIAS to type
-        $tab_ALIAS = ['file' => 'file', 'hidden' => 'hidden', 'radio' => 'radio', 'date' => 'date', 'password' => 'password', 'centimetre' => 'CentiMetre', 'metre' => 'metre', 'prix' => 'money', 'autocomplete' => 'text', 'ckeditor' => 'CKEditor', 'editorjs' => 'hidden',  'texte_propre' => 'text', 'email' => 'email', 'color' => 'color', 'phonefr' => 'tel', 'code_postal' => 'text', 'km' => 'number', 'adeli' => 'number'];
+        $tab_ALIAS = ['uploadjs' => 'file', 'hidden' => 'hidden', 'radio' => 'radio', 'date' => 'date', 'password' => 'password', 'centimetre' => 'CentiMetre', 'metre' => 'metre', 'prix' => 'money', 'autocomplete' => 'text', 'ckeditor' => 'CKEditor', 'editorjs' => 'hidden',  'texte_propre' => 'text', 'email' => 'email', 'color' => 'color', 'phonefr' => 'tel', 'code_postal' => 'text', 'km' => 'number', 'adeli' => 'number'];
         //loop on fields
         $twigNew = []; // array for stock parser
         $twigNew['form_rows'] = ''; //contains string for replace form_rows
@@ -626,9 +622,7 @@ $resolver->setDefaults([
                     file_put_contents("src/Form/CM/Upload$nUpload" . "Type.php", $this->twigParser(file_get_contents('crudmick/php/upload/UploadType.php'), array('upload' => "upload$nUpload", 'Upload' => "Upload$nUpload")));
                     file_put_contents("src/Repository/CM/Upload$nUpload" . "Repository.php", $this->twigParser(file_get_contents('crudmick/php/upload/UploadRepository.php'), array('upload' => "upload$nUpload", 'Upload' => "Upload$nUpload")));
                     file_put_contents("src/Entity/CM/Upload$nUpload" . ".php", $this->twigParser(file_get_contents('crudmick/php/upload/Upload.php'), array('upload' => "upload$nUpload", 'Upload' => "Upload$nUpload", 'extends' => $res['id']['EXTEND'])));
-                    $type = "Upload$nUpload" . "Type::class";
-                    $uses .= "use App\Form\CM\Upload$nUpload" . "Type;\n";
-                    $opts[] = "'mapped' => false";
+                    $type = "FileType::class";
                     $numUpload += 1;
                 }
 
@@ -718,6 +712,7 @@ $resolver->setDefaults([
         //loop on fields
         $twigNew = []; // array for stock parser
         $twigNew['form_rows'] = ''; //contains string for replace form_rows
+        $numEditorjs = 0; //increment nulber for id of editorjs
         foreach ($res as $field => $val) {
             $Field = ucfirst($field);
             //jump timestamptables and id
@@ -731,7 +726,7 @@ $resolver->setDefaults([
                 if ($no_new == false) {
 
                     if (isset($val['ALIAS'])) {
-                        //ALIAS file
+                        //ALIAS uploadjs
                         // he has ATTR file, text or picture
                         if ($val['ALIAS'] == 'uploadjs') {
                             $twigNew['form_rows'] .= '<div class="form-group">';
@@ -760,7 +755,10 @@ $resolver->setDefaults([
                             $twigNew['form_rows'] .= "\n</div>\n";
                         }
                         //for editorjs
-                        if ($val['ALIAS'] == 'editorjs')  $twigNew['form_rows'] .= "<div id='editorjs'></div>\n";
+                        if ($val['ALIAS'] == 'editorjs') {
+                            $twigNew['form_rows'] .= "<div class='editorjs' id='editorjs_$numEditorjs'></div>\n";
+                            $numEditorjs += 1;
+                        }
                         //for autocomplete.js
                         if ($val['ALIAS'] == 'autocomplete')
                             $twigNew['form_rows'] .= "<input type='hidden' class='autocomplete' data-id='$entity" . "_" . "$field' value='{{autocomplete$Field}}'>\n";
