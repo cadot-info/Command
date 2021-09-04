@@ -69,18 +69,18 @@ class CrudmickCommand extends Command
             if (!file_Exists('/app/src/Entity/' . $Entity . '.php'))
                 $io->error("This entity don't exist in /app/src/Entity");
             else {
-                if ($input->getOption('clean')) {
-                    $ff = new FileFunctions();
-                    //remove old files
-                    $ff->deletedir('src/Controller/CM');
-                    $ff->deletedir('src/Form/CM');
-                    $ff->deletedir('src/Repository/CM');
-                    $ff->deletedir('src/Entity/CM');
-                }
-                mkdir('src/Controller/CM');
-                mkdir('src/Form/CM');
-                mkdir('src/Repository/CM');
-                mkdir('src/Entity/CM');
+                // if ($input->getOption('clean')) {
+                //     $ff = new FileFunctions();
+                //     //remove old files
+                //     $ff->deletedir('src/Controller/CM');
+                //     $ff->deletedir('src/Form/CM');
+                //     $ff->deletedir('src/Repository/CM');
+                //     $ff->deletedir('src/Entity/CM');
+                // }
+                // mkdir('src/Controller/CM');
+                // mkdir('src/Form/CM');
+                // mkdir('src/Repository/CM');
+                // mkdir('src/Entity/CM');
 
                 $this->getEffects(); // $res has many options (attr,opt,twig ... autre) of entity necessary for create
                 //minimum options for crudmick
@@ -100,311 +100,8 @@ class CrudmickCommand extends Command
                 $this->createIndex();
 
                 dd();
-                $res = $this->res;
-
-                //creation de show
-                $show = "{% extends '"  . $res['id']['EXTEND'] . "' %}";
-                $show .= '
-{% block title %}  ' . $Entity . ' 
-    {% endblock %}
-{% block body %} 
-<h1> ' . $Entity . ' </h1>';
-                //pour ne pas voir superadmin
-                //                 $show .= "
-                // {% if 'ROLE_SUPER_ADMIN' not in " . strtolower($Entity) . ".roles %}";
-                $show .= '
-<div class="col-12">
-<ul class="list-group">';
-                //on boucle sur les fields
-                foreach ($res as $field => $val) {
-                    //gestion des classes spéciales
-                    $row = ''; //pour mémoriser le retours des spéciaux
-                    //recherche de la présence d'un type relation
-                    $relationFind = ''; // pour mémoriser le type de relation
-                    foreach ($val['AUTRE'] as $value) {
-                        if (
-                            in_array(strToLower($value), $relations) !== false
-                        ) {
-                            $relationFind = $relations[in_array(strToLower($value), $relations)];
-                        }
-                    }
-                    //si on a une relation
-                    if ($relationFind) {
-                        $row = "\n<td>{{" . strtolower($Entity) . "." . $field . "|json_encode";
-                    }
-                    //si on à un no_show
-                    if (isset($val['ATTR']['no_show'])) {
-                    }
-                    //si on a un choices
-                    if (isset($val['OPT']['choices'])) {
-                        $choices = str_replace('[', '', $val['OPT']['choices']);
-                        $choices = str_replace(']', '', $choices);
-                        $choices = explode(',', $choices);
-                        $resChoices = '';
-                        foreach ($choices as $k => $v) {
-                            $tab = explode('=>', $v);
-                            if (isset($tab[1])) {
-                                $resChoices .= $tab[0] . ':' . $tab[1] . ",";
-                            } else {
-                                $resChoices .= $v . ':' . $v . ",";
-                            }
-                        }
-                        $row = ucfirst($field) . "{% set options={" . $resChoices . "} %}";
-                        $row .= "
-                    {% set res=[] %}
-                    {% for key,option in options %}
-                    {% if option in " . strtolower($Entity) . "." . $field . " %}
-                    {% set res=res|merge([key]) %}
-                    {% endif %}
-                    {% endfor %}
-                    {{res|json_encode";
-                    }
-                    //is on est pas dans les cas ci-dessus
-                    if (!$row) {
-                        $row = "\n<li class=\"list-group-item\">
-        <h6>" . ucfirst($field) . "</h6>\n
-        <hr>";
-                        //si on a des ALIAS
-                        if (isset($val['ALIAS'])) {
-                            //on commence par ALIAS upoloadjs
-                            if ($val['ALIAS'] == 'uploadjs') {
-                                //on cherche si on a un type de uploadjs
-                                $typefile = 'texte'; // valeur par défaut pour uploadjs
-                                if (isset($val['ATTR']))
-                                    foreach ($val['ATTR'] as $attribu) {
-                                        $tabfile = explode('=>', $attribu);
-                                        if ($tabfile[0] == 'image' || $tabfile[0] == 'icone') {
-                                            $typefile = $tabfile[0];
-                                        }
-                                    }
-                                //type image
-                                if ($typefile == 'image') {
-                                    $sizef = "";
-                                    $size = explode('x', $tabfile[1]);
-                                    if (trim($size[0]) == '0') {
-                                        $sizef = 'height=' . $size[1] . 'px';
-                                    } else {
-                                        $sizef = 'width=' . $size[0] . 'px';
-                                    }
-                                    $row .= "{%if " . strtolower($Entity) . "." . $field . " %}" .
-                                        "<a data-toggle='popover-hover' data-original-title=\"\" title=\"\" data-img=\"{{voir('" . $field . "/'~" . strtolower($Entity) . "." . $field . ")}}\"><img " . $sizef . " src=\"{{voir('" . $field . "/'~" . strtolower($Entity) . "." . $field . ")}}\"></a> {% endif %}";
-                                }
-                                //type icone
-                                if ($typefile == 'icone') {
-                                    $row .= "{%if " . strtolower($Entity) . " . " . $field . " %}" .
-                                        "<a data-toggle='popover-hover' data-original-title=\"\" title=\"\" data-img=\"{{voir('" . $field . "/'~" . strtolower($Entity) . "." . $field . ")}}\"><img src=\"{{getico('" . $field . "/'~" . strtolower($Entity) . "." . $field . ")}}\"></a> {% endif %}";
-                                }
-                                //type texte
-                                if ($typefile == 'texte') {
-                                    $row .= '<label class="exNomfile">' . "{{" . strtolower($Entity) . "." . $field . "}}</label>";
-                                }
-                            } else {   //si c'est un autre ALIAS
-                                $row .= '{{' . strtolower($Entity) . '.' . $field;
-                            }
-                        } else {   //si c'est pas un ALIAS
-                            if (in_array($field, $timestamptable))
-                                $row .= '{{' . strtolower($Entity) . '.' . $field;
-                        }
-                        //gestion des filtres à ajouter
-                        //on a des filtres
-                        $filtres = '';
-                        if (isset($val['TWIG'])) {
-                            foreach ($val['TWIG'] as $twig) {
-                                $filtres .= "|" . $twig;
-                            }
-                        }
-                        //timestamptable
-                        if (in_array($field, $timestamptable))
-                            $filtres .= ' is empty ? "" :' . $Entity . ' . ' . $field . '|date("d/m à H:i", "Europe/Paris")';
-
-                        //on vérifie s'il faut l'afficher (pas de no_index et pas du type relation
-                        if (!isset($val['ATTR']['no_show'])) {
-                            $show .= $row . $filtres;
-                            //pour le type ckeditor on ajoute un filtre
-                            if (isset($val['ALIAS']))
-                                if ($val['ALIAS'] == 'ckeditor' or $val['ALIAS'] == 'editorjs')
-                                    $show .= '|cleanhtml';
-                            //on ferme pour tous les types sauf uploadjs
-                            if (isset($val['ALIAS'])) {
-                                if ($val['ALIAS'] != 'uploadjs') {
-                                    $show .= "}}";
-                                }
-                            } else {
-                                $show .= "}}";
-                            }
-                        }
-                    } //cas spéciaux
-                } //boucle sur les fields
-                $show .= "
-    </ul>
-    </div>";
-
-                $show .= "\n" . '<a href="{{ path(\'' . strtolower($Entity) . '_index\') }}" class="btn btn-secondary mr-2" type="button">Revenir à la liste</button></a>';
-
-                $show .= "{% endblock %}";
-                if ($input->getOption('origin')) {
-                    @mkdir('/app/templates/' . strTolower($Entity));
-                    $dir = "/app/old/" .  date('Y-m-d_H-i-s') . '/' . $Entity;
-                    @mkdir($dir);
-                    @rename('/app/templates/' . strTolower($Entity) . '/show.html.twig', $dir);
-                    file_put_contents('/app/templates/' . strTolower($Entity) . '/show.html.twig', $show);
-                } else {
-                    @mkdir('/app/crudmick/crud');
-                    file_put_contents('/app/crudmick/crud/' . $Entity . '_show.html.twig', $show);
-                }
-                //creation du controller
-
-
-
-                /* ------------------------------------------------------------------------------------------------------------------ */
-                /*                                                                                             GENERATION DU FORMTYPE */
-                /* ------------------------------------------------------------------------------------------------------------------ */
-                $relation_use = [];
-                $collection_use = [];
-                $biblio_use = [];
-                $FT = '';
-                //on supprime des fields les timestamptables
-                unset($res['updatedAt']);
-                unset($res['createdAt']);
-                unset($res['deletedAt']);
-
-                //on boucle sur les fields
-                foreach ($res as $field => $val) {
-
-                    //gestion des classes spéciales
-                    $row = ''; //pour mémoriser le retours des spéciaux
-                    //recherche de la présence d'un type relation
-                    $relationFind = ''; // pour mémoriser le type de relation
-                    foreach ($val['AUTRE'] as $value) {
-                        if (in_array(strToLower($value), $relations) !== false) {
-                            $relationFind = $relations[in_array(strToLower($value), $relations)];
-                        }
-                    }
-                    $TYPE = 'null';
-                    $resAttr = array(); //stock des attrs
-                    $resOpt = array(); //stock des opts
-                    //attribut unique pour le mask qui donne aussi le type
-                    $tab_ALIAS = ['uploadjs' => 'file', 'hidden' => 'hidden', 'radio' => 'radio', 'date' => 'date', 'password' => 'password', 'centimetre' => 'CentiMetre', 'metre' => 'metre', 'prix' => 'money', 'ckeditor' => 'CKEditor', 'editorjs' => 'hidden',  'texte_propre' => 'text', 'email' => 'email', 'color' => 'color', 'phonefr' => 'tel', 'code_postal' => 'text', 'km' => 'number', 'adeli' => 'number'];
-
-                    //travail sur ATTR
-                    if (isset($val['ATTR'])) {
-                        foreach ($val['ATTR'] as $attr) {
-                            //si on a une config par =>
-                            if (strpos('=>', $attr) !== false) {
-                                $tab = explode('=>', $attr);
-                                $resAttr[] = "'$tab[0]'=>$tab[1]";
-                            } else {
-                                $resAttr[] = "'$attr'";
-                            }
-                        }
-                    }
-                    //travail sur OPT
-                    if (isset($val['OPT'])) {
-                        foreach ($val['OPT'] as $opt) {
-                            $tabopt = explode('=>', $opt);
-                            if ('choices' == $tabopt[0]) {
-                                $choices = str_replace('[', '', $tabopt[1]);
-                                $choices = str_replace(']', '', $choices);
-                                $choices = explode(',', $choices);
-                                $resChoices = '';
-                                foreach ($choices as $k => $v) {
-                                    $tab = explode('=>', $v);
-                                    if (isset($tab[1])) {
-                                        $resChoices .= $tab[0] . '=>' . $tab[1] . ",";
-                                    } else {
-                                        $resChoices .= $v . '=>' . $v . ",";
-                                    }
-                                }
-                                //on ajoute choice dans les librairies à charger
-                                $TYPE = "ChoiceType::class";
-                                if (!in_array('Choice', $biblio_use)) {
-                                    $biblio_use[] = 'Choice';
-                                }
-                                //on ajoute les choices
-                                $resOpt[] = "'choices'=>[" . $resChoices . "]";
-                            } else
-                                //pour les autres
-                                $resOpt[] = "'$tabopt[0]'=>" . substr($opt, strlen($tabopt[0]) + 2);
-                        }
-                    }
-
-                    //on ajoute dans $resOpt si on a un type uploadjs et required=false (pour pouvoir ne rien changer) pour l'envoie du formulaire
-                    if (isset($val['ALIAS'])) if ($val['ALIAS'] == 'uploadjs') $resOpt[] = "'data_class' => null,'required' => false";
-
-                    if ($field != 'id') {
-                        $FT .= "\n->add('$field',$TYPE,['attr'=>[" . implode(',', $resAttr) . "]";
-                        if ($resOpt) {
-                            $FT .= "," . implode(',', $resOpt);
-                        }
-                        $FT .= "])";
-                    }
-                }
-            } //fin de la boucle sur les fields
-            //dd();
-            $finalft = '<?php
-namespace App\Form;
-
-use App\Entity\\' . $Entity . ' ;
-
-use Symfony\Component\Form\AbstractType;
-use Symfony\Component\Form\FormBuilderInterface;
-use Symfony\Component\OptionsResolver\OptionsResolver;' . "\n";
-
-            //collection
-            if (sizeof($relation_use) > 0)
-                $finalft .= "\nuse Symfony\Bridge\Doctrine\Form\Type\EntityType;\n";
-
-            foreach ($relation_use as $nameentity) {
-                $finalft .= "\nuse App\Entity\\" . $nameentity . ";\n";
             }
-            //relation
-            if (sizeof($collection_use) > 0)
-                $finalft .= "\nuse Symfony\Component\Form\Extension\Core\Type\CollectionType;\n";
-
-
-            foreach ($collection_use as $nameentity) {
-                $finalft .= "\nuse App\Entity\\" . $nameentity . ";\n";
-            }
-
-
-            foreach ($biblio_use as $biblio) {
-                if ($biblio == 'CKEditor')
-                    $finalft .= "use FOS\CKEditorBundle\Form\Type\\" . $biblio . "Type;\n";
-                elseif ($biblio == 'Metre')
-                    $finalft .= "use App\\Form\Type\\" . $biblio . "Type;\n";
-                elseif ($biblio == 'CentiMetre')
-                    $finalft .= "use App\\Form\Type\\" . $biblio . "Type;\n";
-                else
-                    $finalft .= "use Symfony\Component\Form\Extension\Core\Type\\" . $biblio . "Type;\n";
-            }
-
-
-            $finalft .= 'class ' . $Entity . 'Type extends AbstractType
-{
-public function buildForm(FormBuilderInterface $builder, array $AtypeOption)
-{
-$builder';
-            $finalft .= $FT . ';}
-
-public function configureOptions(OptionsResolver $resolver)
-{
-$resolver->setDefaults([
-            \'data_class\' => ' . $Entity . '::class,
-        ]);
-    }
-}
-';
-            if ($input->getOption('origin')) {
-                $dir = "/app/old/" .  date('Y-m-d_H-i-s') . '/' . $Entity;
-                @rename('/app/src/Form/' . $Entity . 'Type.php', $dir);
-                file_put_contents('/app/src/Form/' .  $Entity . 'Type.php', $finalft);
-            } else {
-                file_put_contents('/app/crudmick/crud/' . $Entity . 'Type.php', $finalft);
-            }
-        } else {
-            $io->error('Please get the name of entitie');
         }
-        return Command::SUCCESS;
     }
 
     /**
@@ -606,12 +303,12 @@ $resolver->setDefaults([
                 //determination of entity for add in use
                 foreach ($val['AUTRE'] as $key => $value) {
                     $entityRelation = ($SF->chaine_extract($value, 'targetEntity=', '::class'));
-                    if ($val['ALIAS'] == 'collection') {
-                        $type = "CollectionType::class";
-                        $opts[] = "'entry_type' => $entityRelation" . "Type::class,'entry_options' => ['label' => false],'allow_add' => true,'by_reference' => false,'allow_delete' => true,'required' => false,";
-                        $attrs[] = "'class' => 'collection'";
-                        $collections .= "\nuse App\Form\\$entityRelation" . "Type;\n";
-                    } else
+                    //if ($val['ALIAS'] == 'collection') {
+                    $type = "CollectionType::class";
+                    $opts[] = "'entry_type' => $entityRelation" . "Type::class,'entry_options' => ['label' => false],'allow_add' => true,'by_reference' => false,'allow_delete' => true,'required' => false,";
+                    $attrs[] = "'class' => 'collection'";
+                    $collections .= "\nuse App\Form\CM\\$entityRelation" . "Type;\n";
+                    //} else
                     if ($entityRelation) $collections .= "\nuse App\Entity\\$entityRelation;\n";
                 }
             }
@@ -623,6 +320,7 @@ $resolver->setDefaults([
                     file_put_contents("src/Repository/CM/Upload$nUpload" . "Repository.php", $this->twigParser(file_get_contents('crudmick/php/upload/UploadRepository.php'), array('upload' => "upload$nUpload", 'Upload' => "Upload$nUpload")));
                     file_put_contents("src/Entity/CM/Upload$nUpload" . ".php", $this->twigParser(file_get_contents('crudmick/php/upload/Upload.php'), array('upload' => "upload$nUpload", 'Upload' => "Upload$nUpload", 'extends' => $res['id']['EXTEND'])));
                     $type = "FileType::class";
+                    $opts[] = "'data_class' => null";
                     $numUpload += 1;
                 }
 
@@ -861,5 +559,165 @@ $resolver->setDefaults([
             }
         }
         return $relationFind;
+    }
+    private function show()
+    {
+        $res = $this->res;
+
+        //creation de show
+        $show = "{% extends '"  . $res['id']['EXTEND'] . "' %}";
+        $show .= '
+{% block title %}  ' . $Entity . ' 
+    {% endblock %}
+{% block body %} 
+<h1> ' . $Entity . ' </h1>';
+        //pour ne pas voir superadmin
+        //                 $show .= "
+        // {% if 'ROLE_SUPER_ADMIN' not in " . strtolower($Entity) . ".roles %}";
+        $show .= '
+<div class="col-12">
+<ul class="list-group">';
+        //on boucle sur les fields
+        foreach ($res as $field => $val) {
+            //gestion des classes spéciales
+            $row = ''; //pour mémoriser le retours des spéciaux
+            //recherche de la présence d'un type relation
+            $relationFind = ''; // pour mémoriser le type de relation
+            foreach ($val['AUTRE'] as $value) {
+                if (
+                    in_array(strToLower($value), $relations) !== false
+                ) {
+                    $relationFind = $relations[in_array(strToLower($value), $relations)];
+                }
+            }
+            //si on a une relation
+            if ($relationFind) {
+                $row = "\n<td>{{" . strtolower($Entity) . "." . $field . "|json_encode";
+            }
+            //si on à un no_show
+            if (isset($val['ATTR']['no_show'])) {
+            }
+            //si on a un choices
+            if (isset($val['OPT']['choices'])) {
+                $choices = str_replace('[', '', $val['OPT']['choices']);
+                $choices = str_replace(']', '', $choices);
+                $choices = explode(',', $choices);
+                $resChoices = '';
+                foreach ($choices as $k => $v) {
+                    $tab = explode('=>', $v);
+                    if (isset($tab[1])) {
+                        $resChoices .= $tab[0] . ':' . $tab[1] . ",";
+                    } else {
+                        $resChoices .= $v . ':' . $v . ",";
+                    }
+                }
+                $row = ucfirst($field) . "{% set options={" . $resChoices . "} %}";
+                $row .= "
+                    {% set res=[] %}
+                    {% for key,option in options %}
+                    {% if option in " . strtolower($Entity) . "." . $field . " %}
+                    {% set res=res|merge([key]) %}
+                    {% endif %}
+                    {% endfor %}
+                    {{res|json_encode";
+            }
+            //is on est pas dans les cas ci-dessus
+            if (!$row) {
+                $row = "\n<li class=\"list-group-item\">
+        <h6>" . ucfirst($field) . "</h6>\n
+        <hr>";
+                //si on a des ALIAS
+                if (isset($val['ALIAS'])) {
+                    //on commence par ALIAS upoloadjs
+                    if ($val['ALIAS'] == 'uploadjs') {
+                        //on cherche si on a un type de uploadjs
+                        $typefile = 'texte'; // valeur par défaut pour uploadjs
+                        if (isset($val['ATTR'])) {
+                            foreach ($val['ATTR'] as $attribu) {
+                                $tabfile = explode('=>', $attribu);
+                                if ($tabfile[0] == 'image' || $tabfile[0] == 'icone') {
+                                    $typefile = $tabfile[0];
+                                }
+                            }
+                        }
+                        //type image
+                        if ($typefile == 'image') {
+                            $sizef = "";
+                            $size = explode('x', $tabfile[1]);
+                            if (trim($size[0]) == '0') {
+                                $sizef = 'height=' . $size[1] . 'px';
+                            } else {
+                                $sizef = 'width=' . $size[0] . 'px';
+                            }
+                            $row .= "{%if " . strtolower($Entity) . "." . $field . " %}" .
+                                "<a data-toggle='popover-hover' data-original-title=\"\" title=\"\" data-img=\"{{voir('" . $field . "/'~" . strtolower($Entity) . "." . $field . ")}}\"><img " . $sizef . " src=\"{{voir('" . $field . "/'~" . strtolower($Entity) . "." . $field . ")}}\"></a> {% endif %}";
+                        }
+                        //type icone
+                        if ($typefile == 'icone') {
+                            $row .= "{%if " . strtolower($Entity) . " . " . $field . " %}" .
+                                "<a data-toggle='popover-hover' data-original-title=\"\" title=\"\" data-img=\"{{voir('" . $field . "/'~" . strtolower($Entity) . "." . $field . ")}}\"><img src=\"{{getico('" . $field . "/'~" . strtolower($Entity) . "." . $field . ")}}\"></a> {% endif %}";
+                        }
+                        //type texte
+                        if ($typefile == 'texte') {
+                            $row .= '<label class="exNomfile">' . "{{" . strtolower($Entity) . "." . $field . "}}</label>";
+                        }
+                    } else {   //si c'est un autre ALIAS
+                        $row .= '{{' . strtolower($Entity) . '.' . $field;
+                    }
+                } else {   //si c'est pas un ALIAS
+                    if (in_array($field, $timestamptable)) {
+                        $row .= '{{' . strtolower($Entity) . '.' . $field;
+                    }
+                }
+                //gestion des filtres à ajouter
+                //on a des filtres
+                $filtres = '';
+                if (isset($val['TWIG'])) {
+                    foreach ($val['TWIG'] as $twig) {
+                        $filtres .= "|" . $twig;
+                    }
+                }
+                //timestamptable
+                if (in_array($field, $timestamptable)) {
+                    $filtres .= ' is empty ? "" :' . $Entity . ' . ' . $field . '|date("d/m à H:i", "Europe/Paris")';
+                }
+
+                //on vérifie s'il faut l'afficher (pas de no_index et pas du type relation
+                if (!isset($val['ATTR']['no_show'])) {
+                    $show .= $row . $filtres;
+                    //pour le type ckeditor on ajoute un filtre
+                    if (isset($val['ALIAS'])) {
+                        if ($val['ALIAS'] == 'ckeditor' or $val['ALIAS'] == 'editorjs') {
+                            $show .= '|cleanhtml';
+                        }
+                    }
+                    //on ferme pour tous les types sauf uploadjs
+                    if (isset($val['ALIAS'])) {
+                        if ($val['ALIAS'] != 'uploadjs') {
+                            $show .= "}}";
+                        }
+                    } else {
+                        $show .= "}}";
+                    }
+                }
+            } //cas spéciaux
+        } //boucle sur les fields
+        $show .= "
+    </ul>
+    </div>";
+
+        $show .= "\n" . '<a href="{{ path(\'' . strtolower($Entity) . '_index\') }}" class="btn btn-secondary mr-2" type="button">Revenir à la liste</button></a>';
+
+        $show .= "{% endblock %}";
+        if ($input->getOption('origin')) {
+            @mkdir('/app/templates/' . strTolower($Entity));
+            $dir = "/app/old/" .  date('Y-m-d_H-i-s') . '/' . $Entity;
+            @mkdir($dir);
+            @rename('/app/templates/' . strTolower($Entity) . '/show.html.twig', $dir);
+            file_put_contents('/app/templates/' . strTolower($Entity) . '/show.html.twig', $show);
+        } else {
+            @mkdir('/app/crudmick/crud');
+            file_put_contents('/app/crudmick/crud/' . $Entity . '_show.html.twig', $show);
+        }
     }
 }
