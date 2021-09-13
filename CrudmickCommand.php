@@ -244,7 +244,7 @@ class CrudmickCommand extends Command
                                     break;
                             }
                     }
-                    if ($val['ALIAS'] == 'ckeditor')
+                    if ($val['ALIAS'] == 'ckeditor' or $val['ALIAS'] == 'tinymce')
                         $row .= "{{ $Entity.$field|striptags|u.truncate(200, '...', false)|cleanhtml$filters}}";
                     if ($val['ALIAS'] == 'editorjs')
                         $row .= "texte";
@@ -280,7 +280,7 @@ class CrudmickCommand extends Command
         $timestamptable = $this->timestamptable;
         $html = $this->twigParser(file_get_contents($this->path . 'type.php'), array('entity' => $entity, 'Entity' => $Entity, 'extends' => $res['id']['EXTEND']));
         //ALIAS to type
-        $tab_ALIAS = ['uploadjs' => 'file', 'hidden' => 'hidden', 'radio' => 'radio', 'date' => 'date', 'password' => 'password', 'centimetre' => 'CentiMetre', 'metre' => 'metre', 'prix' => 'money', 'autocomplete' => 'text', 'ckeditor' => 'CKEditor', 'editorjs' => 'hidden',  'texte_propre' => 'text', 'email' => 'email', 'color' => 'color', 'phonefr' => 'tel', 'code_postal' => 'text', 'km' => 'number', 'adeli' => 'number'];
+        $tab_ALIAS = ['uploadjs' => 'file', 'hidden' => 'hidden', 'radio' => 'radio', 'date' => 'date', 'password' => 'password', 'centimetre' => 'CentiMetre', 'metre' => 'metre', 'prix' => 'money', 'autocomplete' => 'text', 'ckeditor' => 'CKEditor', 'tinymce' => 'Textarea', 'editorjs' => 'hidden',  'texte_propre' => 'text', 'email' => 'email', 'color' => 'color', 'phonefr' => 'tel', 'code_postal' => 'text', 'km' => 'number', 'adeli' => 'number'];
         //loop on fields
         $twigNew = []; // array for stock parser
         $twigNew['form_rows'] = ''; //contains string for replace form_rows
@@ -309,10 +309,12 @@ class CrudmickCommand extends Command
                     $attrs[] = "'class' => 'collection'";
                     $collections .= "\nuse App\Form\CM\\$entityRelation" . "Type;\n";
                     //} else
-                    if ($entityRelation) $collections .= "\nuse App\Entity\\$entityRelation;\n";
+                    if ($entityRelation) {
+                        $collections .= "\nuse App\Entity\\$entityRelation;\n";
+                    }
                 }
             }
-            if (isset($val['ALIAS']))
+            if (isset($val['ALIAS'])) {
                 if ($val['ALIAS'] == 'uploadjs') {
                     $nUpload = $numUpload == 0 ? '' : \strval($numUpload);
                     //create files for upload
@@ -323,6 +325,11 @@ class CrudmickCommand extends Command
                     $opts[] = "'data_class' => null";
                     $numUpload += 1;
                 }
+                if ($val['ALIAS'] == 'tinymce') {
+                    $attrs[] = "'class' => 'tinymce'";
+                }
+            }
+
 
             if ($field != 'id') {
                 //for use by ALIAS
@@ -384,7 +391,7 @@ class CrudmickCommand extends Command
         //create uses
         if ($collections) $uses .= $collections . "\nuse Symfony\Component\Form\Extension\Core\Type\CollectionType;\n";
         foreach ($biblio_use as $biblio) {
-            if ($biblio == 'CKEditor')
+            if ($biblio == 'CKEditor' or $biblio == 'tinymce')
                 $uses .= "use FOS\CKEditorBundle\Form\Type\\" . $biblio . "Type;\n";
             else
                 $uses .= "use Symfony\Component\Form\Extension\Core\Type\\" . $biblio . "Type;\n";
@@ -410,7 +417,7 @@ class CrudmickCommand extends Command
         //loop on fields
         $twigNew = []; // array for stock parser
         $twigNew['form_rows'] = ''; //contains string for replace form_rows
-        $numEditorjs = 0; //increment nulber for id of editorjs
+        $numEditor = 0; //increment nulber for id of editorjs
         foreach ($res as $field => $val) {
             $Field = ucfirst($field);
             //jump timestamptables and id
@@ -454,8 +461,8 @@ class CrudmickCommand extends Command
                         }
                         //for editorjs
                         if ($val['ALIAS'] == 'editorjs') {
-                            $twigNew['form_rows'] .= "<div class='editorjs' id='editorjs_$numEditorjs'></div>\n";
-                            $numEditorjs += 1;
+                            $twigNew['form_rows'] .= "<div class='editorjs' id='editorjs_$numEditor'></div>\n";
+                            $numEditor += 1;
                         }
                         //for autocomplete.js
                         if ($val['ALIAS'] == 'autocomplete')
@@ -687,7 +694,7 @@ class CrudmickCommand extends Command
                     $show .= $row . $filtres;
                     //pour le type ckeditor on ajoute un filtre
                     if (isset($val['ALIAS'])) {
-                        if ($val['ALIAS'] == 'ckeditor' or $val['ALIAS'] == 'editorjs') {
+                        if ($val['ALIAS'] == 'ckeditor' or $val['ALIAS'] == 'editorjs' or $val['ALIAS'] == 'tinymce') {
                             $show .= '|cleanhtml';
                         }
                     }
