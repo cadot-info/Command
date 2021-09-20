@@ -233,14 +233,13 @@ class CrudmickCommand extends Command
                         }
                         if ($val['ALIAS'] == 'uploadjs') //uploadjs ATTR type for show
                             switch ($type) {
-                                    //icon for picture
                                 case 'index_picture':
                                 case 'index_icon':
-                                    $row .= "\n{%if $entity.$field %}\n<img src=\"{{asset('$field/$entity.$field')}}\"> \n{% endif %}"; // add html form
+                                    $row .= "{%if $Entity.$field %} <a class='bigpicture'   href=\"{{asset('/uploads/" . $field . "/'~" . $Entity . "." . $field . ")}}\"><img style='max-width:33%;' src=\"{{asset('/uploads/" . $field . "/'~" . $Entity . "." . $field . ")}}\"></a> {% endif %}";
                                     break;
                                 case 'index_text':
                                 default:
-                                    $row .= "{%if $Entity.$field %} <a class='bigpicture'   href=\"{{asset('/uploads/" . $field . "/'~" . $Entity . "." . $field . ")}}\"><img style='max-width:33%;' src=\"{{asset('/uploads/" . $field . "/'~" . $Entity . "." . $field . ")}}\"></a> {% endif %}";
+                                    $row .= "\n{%if $Entity.$field %}\n<a class='bigpicture'   href=\"{{asset('/uploads/" . $field . "/'~" . $Entity . "." . $field . ")}}\">$Entity.$field</a>\n{% endif %}"; // add html form
                                     break;
                             }
                     }
@@ -323,6 +322,7 @@ class CrudmickCommand extends Command
                     file_put_contents("src/Entity/CM/Upload$nUpload" . ".php", $this->twigParser(file_get_contents('crudmick/php/upload/Upload.php'), array('upload' => "upload$nUpload", 'Upload' => "Upload$nUpload", 'extends' => $res['id']['EXTEND'])));
                     $type = "FileType::class";
                     $opts[] = "'data_class' => null";
+                    $attrs[] = "'class' => 'uploadjs'";
                     $numUpload += 1;
                 }
                 if ($val['ALIAS'] == 'tinymce') {
