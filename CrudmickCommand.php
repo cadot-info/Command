@@ -126,7 +126,7 @@ class CrudmickCommand extends Command
                     //remove spaces
                     $docClean = trim($doc);
                     if (substr($docClean, 0, strlen('* '))) {
-                        $docClean = substr($docClean, strlen('* '));
+                        $docClean = trim(substr($docClean, strlen('* ')));
                     }
                     //list tag with =
                     $posEgale = strpos($docClean, '=');
@@ -239,7 +239,7 @@ class CrudmickCommand extends Command
                                     break;
                                 case 'index_text':
                                 default:
-                                    $row .= "\n{%if $Entity.$field %}\n<a class='bigpicture'   href=\"{{asset('/uploads/" . $field . "/'~" . $Entity . "." . $field . ")}}\">$Entity.$field</a>\n{% endif %}"; // add html form
+                                    $row .= "\n{%if $Entity.$field %}\n<a class='bigpicture'   href=\"{{asset('/uploads/" . $field . "/'~" . $Entity . "." . $field . ")}}\">{{" . "$Entity.$field" . "|split('_',2)[1]}}</a>\n{% endif %}"; // add html form
                                     break;
                             }
                     }
