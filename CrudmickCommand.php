@@ -42,8 +42,9 @@ class CrudmickCommand extends Command
     private $Entity;
     private $timestamptable;
     private $res;
-    private $r;
     private $input;
+    private $extend;
+    private $sortable;
 
 
     protected function configure(): void
@@ -69,39 +70,16 @@ class CrudmickCommand extends Command
             if (!file_Exists('/app/src/Entity/' . $Entity . '.php'))
                 $io->error("This entity don't exist in /app/src/Entity");
             else {
-                // if ($input->getOption('clean')) {
-                //     $ff = new FileFunctions();
-                //     //remove old files
-                //     $ff->deletedir('src/Controller/CM');
-                //     $ff->deletedir('src/Form/CM');
-                //     $ff->deletedir('src/Repository/CM');
-                //     $ff->deletedir('src/Entity/CM');
-                // }
-                // mkdir('src/Controller/CM');
-                // mkdir('src/Form/CM');
-                // mkdir('src/Repository/CM');
-                // mkdir('src/Entity/CM');
-
                 $this->getEffects(); // $res has many options (attr,opt,twig ... autre) of entity necessary for create
-                //minimum options for crudmick
-                if (!isset($this->res['id']['EXTEND'])) {
-                    $io->error('Please get a EXTEND for id (example: EXTEND=admin/admin.html.twig, used bu twigs)');
-                    exit();
-                }
-                if (!isset($this->res['id']['PARTIE'])) {
-                    $io->error('Please get a PARTIE for id (example: PARTIE=admin, used by controller)');
-                    exit();
-                }
                 $this->createType();
                 $this->createController();
                 $this->createNew();
 
 
                 $this->createIndex();
-
-                dd();
             }
-        }
+        } else $io->error('no Entity');
+        return 1;
     }
 
     /**
@@ -148,6 +126,21 @@ class CrudmickCommand extends Command
                 }
             }
         }
+        //minimum options for crudmick
+        if (!isset($this->res['id']['EXTEND'])) {
+            //see in .env
+            if (!isset($_ENV['EXTEND'])) {
+                echo ('Please get a EXTEND for id (example: EXTEND=admin/admin.html.twig, used bu twigs)');
+                exit();
+            } else
+                $this->extend = $_ENV['EXTEND'];
+        } else {
+            $this->extend = $this->res['id']['EXTEND'];
+        }
+        //SORTABLE
+        $this->sortable = false;
+        if (isset($res['id']['ATTR'])) if ($this->searchInValue($res['id']['ATTR'], 'sortable') !== false) $this->sortable = true;
+        if ($_ENV['SORTABLE'] == "1") $this->sortable = true;
         $this->res = $res;
     }
     private function createIndex()
@@ -157,7 +150,7 @@ class CrudmickCommand extends Command
         $entity = strToLower($Entity);
         $timestamptable = $this->timestamptable;
         $html = $this->twigParser(file_get_contents($this->path . 'index.html.twig'), array('entity' => $entity, 'Entity' =>
-        $Entity, 'extends' => $res['id']['EXTEND']));
+        $Entity, 'extends' => $this->extend));
         //actions show or hide
         $actions = ['no_action_show', 'no_action_clone', 'no_action_delete', 'no_action_edit', 'no_action_new'];
         foreach ($actions as $action) {
@@ -167,9 +160,14 @@ class CrudmickCommand extends Command
                 $html = $this->twigParser($html, array($action => ''));
         }
         //code for sortable ATTR
-        if (isset($res['id']['ATTR']))
-            if ($this->searchInValue($res['id']['ATTR'], 'sortable') !== false)
-                $html = $this->twigParser($html, ['sortable' => "{% set list=findOneBy('sortable',{'entite':'$Entity'}) %}\n{% if list != null %}<input type='hidden' id='ex_sortable' value='{{list.Ordre}}'>\n{% endif %}<input entite='$Entity' id='save_sortable' type='hidden'>"]);
+        $cursorSortable = ''; //style of cursor for sortable
+        if ($this->sortable) {
+            $html = $this->twigParser($html, ['sortable' => "{% set list=findOneBy('sortable',{'entite':'$Entity'}) %}\n{% if list != null %}<input type='hidden' id='ex_sortable' value='{{list.Ordre}}'>\n{% endif %}<input entite='$Entity' id='save_sortable' type='hidden'>"]);
+            //$cursorSortable = 'style="cursor:move;"';
+        } else {
+            $html = \str_replace('¤sortable¤', '', $html);
+            $html = \str_replace('id="sortable"', '', $html);
+        }
 
         //loop on fields for create header of table
         $entete = ''; //content head of table
@@ -194,7 +192,7 @@ class CrudmickCommand extends Command
         $html = $this->twigParser($html, ['entete' => $entete]);
 
         //loop on fields for create row of table
-        $finalrow = ''; //content row of table
+        $finalrow = '';
         foreach ($res as $field => $val) {
             $row = ''; //content temp row
             $filters = ''; //content the TWIG filters
@@ -256,7 +254,7 @@ class CrudmickCommand extends Command
                     $row .= "{{ $Entity.$field$filters}}";
                 }
                 //ADD row
-                $finalrow .= "\n<td style='cursor:move;' >$row</td>";
+                $finalrow .= "\n<td $cursorSortable >$row</td>";
             }
         }
         //parse index.html with headers
@@ -277,7 +275,7 @@ class CrudmickCommand extends Command
         $Entity = $this->Entity;
         $entity = strToLower($Entity);
         $timestamptable = $this->timestamptable;
-        $html = $this->twigParser(file_get_contents($this->path . 'type.php'), array('entity' => $entity, 'Entity' => $Entity, 'extends' => $res['id']['EXTEND']));
+        $html = $this->twigParser(file_get_contents($this->path . 'type.php'), array('entity' => $entity, 'Entity' => $Entity, 'extends' => $this->extend));
         //ALIAS to type
         $tab_ALIAS = ['uploadjs' => 'file', 'hidden' => 'hidden', 'radio' => 'radio', 'date' => 'date', 'password' => 'password', 'centimetre' => 'CentiMetre', 'metre' => 'metre', 'prix' => 'money', 'autocomplete' => 'text', 'ckeditor' => 'CKEditor', 'tinymce' => 'Textarea', 'editorjs' => 'hidden',  'texte_propre' => 'text', 'email' => 'email', 'color' => 'color', 'phonefr' => 'tel', 'code_postal' => 'text', 'km' => 'number', 'adeli' => 'number'];
         //loop on fields
@@ -306,7 +304,7 @@ class CrudmickCommand extends Command
                     $type = "CollectionType::class";
                     $opts[] = "'entry_type' => $entityRelation" . "Type::class,'entry_options' => ['label' => false],'allow_add' => true,'by_reference' => false,'allow_delete' => true,'required' => false,";
                     $attrs[] = "'class' => 'collection'";
-                    $collections .= "\nuse App\Form\CM\\$entityRelation" . "Type;\n";
+                    $collections .= "\nuse App\Form\\$entityRelation" . "Type;\n";
                     //} else
                     if ($entityRelation) {
                         $collections .= "\nuse App\Entity\\$entityRelation;\n";
@@ -319,7 +317,7 @@ class CrudmickCommand extends Command
                     //create files for upload
                     file_put_contents("src/Form/CM/Upload$nUpload" . "Type.php", $this->twigParser(file_get_contents('crudmick/php/upload/UploadType.php'), array('upload' => "upload$nUpload", 'Upload' => "Upload$nUpload")));
                     file_put_contents("src/Repository/CM/Upload$nUpload" . "Repository.php", $this->twigParser(file_get_contents('crudmick/php/upload/UploadRepository.php'), array('upload' => "upload$nUpload", 'Upload' => "Upload$nUpload")));
-                    file_put_contents("src/Entity/CM/Upload$nUpload" . ".php", $this->twigParser(file_get_contents('crudmick/php/upload/Upload.php'), array('upload' => "upload$nUpload", 'Upload' => "Upload$nUpload", 'extends' => $res['id']['EXTEND'])));
+                    file_put_contents("src/Entity/CM/Upload$nUpload" . ".php", $this->twigParser(file_get_contents('crudmick/php/upload/Upload.php'), array('upload' => "upload$nUpload", 'Upload' => "Upload$nUpload", 'extends' => $this->extend)));
                     $type = "FileType::class";
                     $opts[] = "'data_class' => null";
                     $attrs[] = "'class' => 'uploadjs'";
@@ -412,7 +410,7 @@ class CrudmickCommand extends Command
         $Entity = $this->Entity;
         $entity = strToLower($Entity);
         $timestamptable = $this->timestamptable;
-        $html = $this->twigParser(file_get_contents($this->path . 'new.html.twig'), array('entity' => $entity, 'Entity' => $Entity, 'extends' => $res['id']['EXTEND']));
+        $html = $this->twigParser(file_get_contents($this->path . 'new.html.twig'), array('entity' => $entity, 'Entity' => $Entity, 'extends' => $this->extend));
 
         //loop on fields
         $twigNew = []; // array for stock parser
@@ -486,7 +484,7 @@ class CrudmickCommand extends Command
         $Entity = $this->Entity;
         $entity = strToLower($Entity);
         $timestamptable = $this->timestamptable;
-        $html = $this->twigParser(file_get_contents($this->path . 'controller.php'), array('entity' => $entity, 'Entity' => $Entity, 'extends' => $res['id']['EXTEND']));
+        $html = $this->twigParser(file_get_contents($this->path . 'controller.php'), array('entity' => $entity, 'Entity' => $Entity, 'extends' => $this->extend));
         //lop for autocomplete
         $autocompleteRender = '';
         foreach ($res as $field => $val) {
@@ -503,7 +501,9 @@ class CrudmickCommand extends Command
             //specific replacement for php for include Service
             $html = str_replace('new(Request $request)', 'new(Request $request,FunctionEntitie $functionEntitie)', $html);
             $html = str_replace('edit(Request $request', 'edit(Request $request,FunctionEntitie $functionEntitie', $html);
-        }
+        } else
+            $html = str_replace('¤autocompleteRender¤,', '', $html);
+
         //create file
         if ($this->input->getOption('origin'))
             file_put_contents('/app/src/Controller/' .  $Entity . 'Controller.php', $html);
@@ -572,7 +572,7 @@ class CrudmickCommand extends Command
         $res = $this->res;
 
         //creation de show
-        $show = "{% extends '"  . $res['id']['EXTEND'] . "' %}";
+        $show = "{% extends '"  . $this->extend . "' %}";
         $show .= '
 {% block title %}  ' . $Entity . ' 
     {% endblock %}
