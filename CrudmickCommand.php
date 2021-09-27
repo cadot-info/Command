@@ -300,14 +300,22 @@ class CrudmickCommand extends Command
                 //determination of entity for add in use
                 foreach ($val['AUTRE'] as $key => $value) {
                     $entityRelation = ($SF->chaine_extract($value, 'targetEntity=', '::class'));
-                    //if ($val['ALIAS'] == 'collection') {
-                    $type = "CollectionType::class";
-                    $opts[] = "'entry_type' => $entityRelation" . "Type::class,'entry_options' => ['label' => false],'allow_add' => true,'by_reference' => false,'allow_delete' => true,'required' => false,";
-                    $attrs[] = "'class' => 'collection'";
-                    $collections .= "\nuse App\Form\\$entityRelation" . "Type;\n";
-                    //} else
-                    if ($entityRelation) {
-                        $collections .= "\nuse App\Entity\\$entityRelation;\n";
+                    $choiceentitie = false;
+                    //for choiceentitie
+                    if (isset($val['ALIAS']))
+                        if ($val['ALIAS'] == 'choiceEntitie')
+                            $choiceentitie = true;
+                    if ($choiceentitie == true)
+                        $collections .= "\nuse App\Form\\$entityRelation" . "Type;\n";
+                    else {
+                        $type = "CollectionType::class";
+                        $opts[] = "'entry_type' => $entityRelation" . "Type::class,'entry_options' => ['label' => false],'allow_add' => true,'by_reference' => false,'allow_delete' => true,'required' => false,";
+                        $attrs[] = "'class' => 'collection'";
+                        $collections .= "\nuse App\Form\\$entityRelation" . "Type;\n";
+                        //} else
+                        if ($entityRelation) {
+                            $collections .= "\nuse App\Entity\\$entityRelation;\n";
+                        }
                     }
                 }
             }
@@ -388,11 +396,21 @@ class CrudmickCommand extends Command
         }
         //create uses
         if ($collections) $uses .= $collections . "\nuse Symfony\Component\Form\Extension\Core\Type\CollectionType;\n";
+
+        //create biblio
         foreach ($biblio_use as $biblio) {
-            if ($biblio == 'CKEditor' or $biblio == 'tinymce')
-                $uses .= "use FOS\CKEditorBundle\Form\Type\\" . $biblio . "Type;\n";
-            else
-                $uses .= "use Symfony\Component\Form\Extension\Core\Type\\" . $biblio . "Type;\n";
+            switch ($biblio) {
+                case 'CKEditor':
+                    $uses .= "use FOS\CKEditorBundle\Form\Type\\" . $biblio . "Type;\n";
+                    break;
+                case 'CentiMetre':
+                case 'Metre':
+                    $uses .= "use App\Form\Type\\" . $biblio . "Type;\n";
+                    break;
+                default:
+                    $uses .= "use Symfony\Component\Form\Extension\Core\Type\\" . $biblio . "Type;\n";
+                    break;
+            }
         }
 
         //parse type.php with headers
@@ -427,7 +445,6 @@ class CrudmickCommand extends Command
                 $twigNew['form_rows'] .= $no_new ? ' {% do form.' . $field . '.setRendered() %}' . "\n" : '{{ form_row(form.' . $field . ') }}' . "\n";
                 //All fields except no_new and id
                 if ($no_new == false) {
-
                     if (isset($val['ALIAS'])) {
                         //ALIAS uploadjs
                         // he has ATTR file, text or picture
@@ -503,12 +520,47 @@ class CrudmickCommand extends Command
             $html = str_replace('edit(Request $request', 'edit(Request $request,FunctionEntitie $functionEntitie', $html);
         } else
             $html = str_replace('¤autocompleteRender¤,', '', $html);
-
         //create file
-        if ($this->input->getOption('origin'))
+        if ($this->input->getOption('origin')) {
+            //récupération de l'ancien fichier
+            $ancien = file_get_contents('/app/src/Controller/' .  $Entity . 'Controller.php');
+            //récupération des anciens codes à protéger et à remettre
+            $codes = $this->getCodes($ancien);
             file_put_contents('/app/src/Controller/' .  $Entity . 'Controller.php', $html);
-        else
+            //injection des anciens codes
+
+        } else
             file_put_contents('/app/crudmick/crud/' . $Entity . 'Controller.php', $html);
+    }
+
+    private function getCodes($string): array
+    {
+        $res = [];
+        //on recherche la balise code
+        $offset = 0;
+        while (($pos = strpos($string, '/*¤code¤*/', $offset)) !== false) {
+            $tab = [];
+            $fin = strpos($string, '/*¤fincode¤*/', $pos);
+            $fintotal = $fin + strlen('/*¤fincode¤*/');
+            $tab['code'] = substr($string, $pos + strlen('/*¤code¤*/'), $fin - $pos - strlen('/*¤code¤*/'));
+            //on regarde s'il y a une balise au dessus ou en dessous
+            if (($pos - strrpos(substr($string, 0, $pos), '¤*/')) < 20) { //dessus
+                $tab['position'] = 'dessus';
+                $markbegin = strrpos(substr($string, 0, $pos), '/*¤');
+                $tab['mark'] = substr($string, $markbegin + strlen('/*¤'), strpos($string, '¤*/', $markbegin) - $markbegin - strlen('¤*/'));
+            }
+            if (($markbegin = strpos($string, '/*¤', $fintotal)) !== false) { //dessous
+                if (strpos($string, '/*¤', $fintotal) - $fintotal < 20) {
+                    $tab['position'] = 'dessous';
+                    $tab['mark'] = substr($string, $markbegin + strlen('/*¤'), strpos($string, '¤*/', $markbegin) - $markbegin - strlen('¤*/'));
+                }
+            }
+            //on ajoute au tableau
+            $res[] = $tab;
+            $offset = $fin + 10;
+        }
+        dd($res);
+        return $res;
     }
 
     /**
