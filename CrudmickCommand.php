@@ -417,7 +417,7 @@ class CrudmickCommand extends Command
         $html = $this->twigParser($html, ['adds' => $adds, 'uses' => $uses]);
         //create file
         if ($this->input->getOption('origin'))
-            file_put_contents('/app/src/Form/' .  $Entity . 'Type.php', $html);
+            $this->saveFileWithCodes('/app/src/Form/' .  $Entity . 'Type.php', $html);
         else
             file_put_contents('/app/crudmick/crud/' . $Entity . 'Type.php', $html);
     }
@@ -514,6 +514,7 @@ class CrudmickCommand extends Command
         }
         //parse the html with autocomplete
         if ($autocompleteRender) {
+            /**@var string $html */
             $html = $this->twigParser($html, array('autocompleteRender' => substr($autocompleteRender, 0, -1), 'autocompleteService' => 'use App\CMService\FunctionEntitie'));
             //specific replacement for php for include Service
             $html = str_replace('new(Request $request)', 'new(Request $request,FunctionEntitie $functionEntitie)', $html);
@@ -522,18 +523,40 @@ class CrudmickCommand extends Command
             $html = str_replace('¤autocompleteRender¤,', '', $html);
         //create file
         if ($this->input->getOption('origin')) {
-            //récupération de l'ancien fichier
-            $ancien = file_get_contents('/app/src/Controller/' .  $Entity . 'Controller.php');
-            //récupération des anciens codes à protéger et à remettre
-            $codes = $this->getCodes($ancien);
-            file_put_contents('/app/src/Controller/' .  $Entity . 'Controller.php', $html);
-            //injection des anciens codes
-
+            $this->saveFileWithCodes('/app/src/Controller/' .  $Entity . 'Controller.php', $html);
         } else
             file_put_contents('/app/crudmick/crud/' . $Entity . 'Controller.php', $html);
     }
 
-    private function getCodes($string): array
+    private function saveFileWithCodes(string $filename, string $html): int
+    {
+        //récupération de l'ancien fichier
+        $ancien = file_get_contents($filename);
+        //récupération des anciens codes à protéger et à remettre
+        $codes = $this->getCodes($ancien);
+        foreach ($codes as $code) {
+            //on recherche la mark unique
+            $pos = strpos($html, $code['mark']) - strlen('/*¤');
+            $mark = "\n/*¤" . $code['mark'] . "¤*/\n";
+            $codeEntier = "\n/*¤code¤*/" . $code['code'] . "/*¤fincode¤*/\n";
+            if ($code['position'] == 'dessus') {
+                $html = substr($html, 0, $pos) . $mark . $codeEntier . substr($html, $pos + strlen($mark));
+            }
+            if ($code['position'] == 'dessous') {
+                $html = substr($html, 0, $pos) . $codeEntier . $mark . substr($html, $pos + strlen($mark));
+            }
+        }
+        return file_put_contents($filename, $html);
+        //injection des anciens codes
+
+    }
+
+    /**
+     * @param string code avec balise ¤code¤ et ¤fincode¤ 
+     * 
+     * @return array position=>dessus/dessous, code et mark
+     */
+    private function getCodes(string $string): array
     {
         $res = [];
         //on recherche la balise code
@@ -559,7 +582,6 @@ class CrudmickCommand extends Command
             $res[] = $tab;
             $offset = $fin + 10;
         }
-        dd($res);
         return $res;
     }
 
