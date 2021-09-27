@@ -261,7 +261,7 @@ class CrudmickCommand extends Command
         $html = $this->twigParser($html, ['rows' => $finalrow]);
         if ($this->input->getOption('origin')) {
             @mkdir('/app/templates/' . $entity);
-            file_put_contents('/app/templates/' . $entity . '/index.html.twig', $html);
+            $this->saveFileWithCodes('/app/templates/' . $entity . '/index.html.twig', $html);
         } else {
             @mkdir('/app/crudmick/crud');
             file_put_contents('/app/crudmick/crud/' . $Entity . '_index.html.twig', $html);
@@ -489,7 +489,7 @@ class CrudmickCommand extends Command
         $html = $this->twigParser($html, $twigNew);
         if ($this->input->getOption('origin')) {
             @mkdir('/app/templates/' . $entity);
-            file_put_contents('/app/templates/' . $entity . '/new.html.twig', $html);
+            $this->saveFileWithCodes('/app/templates/' . $entity . '/new.html.twig', $html);
         } else {
             @mkdir('/app/crudmick/crud');
             file_put_contents('/app/crudmick/crud/' . $Entity . '_new.html.twig', $html);
@@ -530,15 +530,24 @@ class CrudmickCommand extends Command
 
     private function saveFileWithCodes(string $filename, string $html): int
     {
+        //détection de l'extension
+        $ext = substr(trim($filename), -3);
+        if ($ext == 'php') {
+            $baliseBegin = '/*¤';
+            $baliseEnd = '¤*/';
+        } else {
+            $baliseBegin = '{#¤';
+            $baliseEnd = '¤#}';
+        }
         //récupération de l'ancien fichier
         $ancien = file_get_contents($filename);
         //récupération des anciens codes à protéger et à remettre
-        $codes = $this->getCodes($ancien);
+        $codes = $this->getCodes($ancien, $baliseBegin, $baliseEnd);
         foreach ($codes as $code) {
             //on recherche la mark unique
-            $pos = strpos($html, $code['mark']) - strlen('/*¤');
-            $mark = "\n/*¤" . $code['mark'] . "¤*/\n";
-            $codeEntier = "\n/*¤code¤*/" . $code['code'] . "/*¤fincode¤*/\n";
+            $pos = strpos($html, $code['mark']) - strlen($baliseBegin);
+            $mark = "\n" . $baliseBegin . $code['mark'] . $baliseEnd . "\n";
+            $codeEntier = "\n" . $baliseBegin . "code" . $baliseEnd . $code['code'] . $baliseBegin . "fincode" . $baliseEnd . "\n";
             if ($code['position'] == 'dessus') {
                 $html = substr($html, 0, $pos) . $mark . $codeEntier . substr($html, $pos + strlen($mark));
             }
@@ -556,32 +565,33 @@ class CrudmickCommand extends Command
      * 
      * @return array position=>dessus/dessous, code et mark
      */
-    private function getCodes(string $string): array
+    private function getCodes(string $string, $baliseBegin, $baliseEnd): array
     {
         $res = [];
         //on recherche la balise code
         $offset = 0;
-        while (($pos = strpos($string, '/*¤code¤*/', $offset)) !== false) {
+        while (($pos = strpos($string, $baliseBegin . 'code' . $baliseEnd, $offset)) !== false) {
             $tab = [];
-            $fin = strpos($string, '/*¤fincode¤*/', $pos);
-            $fintotal = $fin + strlen('/*¤fincode¤*/');
-            $tab['code'] = substr($string, $pos + strlen('/*¤code¤*/'), $fin - $pos - strlen('/*¤code¤*/'));
+            $fin = strpos($string, $baliseBegin . 'fincode' . $baliseEnd, $pos);
+            $fintotal = $fin + strlen($baliseBegin . 'fincode' . $baliseEnd);
+            $tab['code'] = substr($string, $pos + strlen($baliseBegin . 'code' . $baliseEnd), $fin - $pos - strlen($baliseBegin . 'code' . $baliseEnd));
             //on regarde s'il y a une balise au dessus ou en dessous
-            if (($pos - strrpos(substr($string, 0, $pos), '¤*/')) < 20) { //dessus
+            if (($pos - strrpos(substr($string, 0, $pos), $baliseEnd)) < 20) { //dessus
                 $tab['position'] = 'dessus';
-                $markbegin = strrpos(substr($string, 0, $pos), '/*¤');
-                $tab['mark'] = substr($string, $markbegin + strlen('/*¤'), strpos($string, '¤*/', $markbegin) - $markbegin - strlen('¤*/'));
+                $markbegin = strrpos(substr($string, 0, $pos), $baliseBegin);
+                $tab['mark'] = substr($string, $markbegin + strlen($baliseBegin), strpos($string, $baliseEnd, $markbegin) - $markbegin - strlen($baliseEnd));
             }
-            if (($markbegin = strpos($string, '/*¤', $fintotal)) !== false) { //dessous
-                if (strpos($string, '/*¤', $fintotal) - $fintotal < 20) {
+            if (($markbegin = strpos($string, $baliseBegin, $fintotal)) !== false) { //dessous
+                if (strpos($string, $baliseBegin, $fintotal) - $fintotal < 20) {
                     $tab['position'] = 'dessous';
-                    $tab['mark'] = substr($string, $markbegin + strlen('/*¤'), strpos($string, '¤*/', $markbegin) - $markbegin - strlen('¤*/'));
+                    $tab['mark'] = substr($string, $markbegin + strlen($baliseBegin), strpos($string, $baliseEnd, $markbegin) - $markbegin - strlen($baliseEnd));
                 }
             }
             //on ajoute au tableau
             $res[] = $tab;
             $offset = $fin + 10;
         }
+        dump($res, $baliseBegin . 'code' . $baliseEnd);
         return $res;
     }
 
