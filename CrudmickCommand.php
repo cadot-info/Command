@@ -591,7 +591,6 @@ class CrudmickCommand extends Command
             $res[] = $tab;
             $offset = $fin + 10;
         }
-        dump($res, $baliseBegin . 'code' . $baliseEnd);
         return $res;
     }
 
