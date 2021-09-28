@@ -162,7 +162,7 @@ class CrudmickCommand extends Command
         //code for sortable ATTR
         $cursorSortable = ''; //style of cursor for sortable
         if ($this->sortable) {
-            $html = $this->twigParser($html, ['sortable' => "{% set list=findOneBy('sortable',{'entite':'$Entity'}) %}\n{% if list != null %}<input type='hidden' id='ex_sortable' value='{{list.Ordre}}'>\n{% endif %}<input entite='$Entity' id='save_sortable' type='hidden'>"]);
+            $html = $this->twigParser($html, ['sortable' => '{% set list=findOneBy("sortable",{"entite":' . $Entity . '}) %}' . "\n" . '{% if list != null %}<input type="hidden" id="ex_sortable" value="{{list.Ordre}}">' . "\n" . '{% endif %}<input entite="' . $Entity . '" id="save_sortable" type="hidden">"']);
             //$cursorSortable = 'style="cursor:move;"';
         } else {
             $html = \str_replace('¤sortable¤', '', $html);
@@ -233,11 +233,11 @@ class CrudmickCommand extends Command
                             switch ($type) {
                                 case 'index_picture':
                                 case 'index_icon':
-                                    $row .= "{%if $Entity.$field %} <a class='bigpicture'   href=\"{{asset('/uploads/" . $field . "/'~" . $Entity . "." . $field . ")}}\"><img style='max-width:33%;' src=\"{{asset('/uploads/" . $field . "/'~" . $Entity . "." . $field . ")}}\"></a> {% endif %}";
+                                    $row .= "{%if $Entity.$field %} <a class=\"bigpicture\"   href=\"{{asset('/uploads/" . $field . "/'~" . $Entity . "." . $field . ")}}\"><img style='max-width:33%;' src=\"{{asset('/uploads/" . $field . "/'~" . $Entity . "." . $field . ")}}\"></a> {% endif %}";
                                     break;
                                 case 'index_text':
                                 default:
-                                    $row .= "\n{%if $Entity.$field %}\n<a class='bigpicture'   href=\"{{asset('/uploads/" . $field . "/'~" . $Entity . "." . $field . ")}}\">{{" . "$Entity.$field" . "|split('_',2)[1]}}</a>\n{% endif %}"; // add html form
+                                    $row .= "\n{%if $Entity.$field %}\n<a class=\"bigpicture\"   href=\"{{asset('/uploads/" . $field . "/'~" . $Entity . "." . $field . ")}}\">{{" . "$Entity.$field" . "|split('_',2)[1]}}</a>\n{% endif %}"; // add html form
                                     break;
                             }
                     }
@@ -535,10 +535,13 @@ class CrudmickCommand extends Command
         if ($ext == 'php') {
             $baliseBegin = '/*¤';
             $baliseEnd = '¤*/';
+            $patch = 0;
         } else {
-            $baliseBegin = '{#¤';
-            $baliseEnd = '¤#}';
+            $baliseBegin = '{# ¤';
+            $baliseEnd = '¤ #}';
+            $patch = 2;
         }
+
         //récupération de l'ancien fichier
         $ancien = file_get_contents($filename);
         //récupération des anciens codes à protéger et à remettre
@@ -549,10 +552,10 @@ class CrudmickCommand extends Command
             $mark = "\n" . $baliseBegin . $code['mark'] . $baliseEnd . "\n";
             $codeEntier = "\n" . $baliseBegin . "code" . $baliseEnd . $code['code'] . $baliseBegin . "fincode" . $baliseEnd . "\n";
             if ($code['position'] == 'dessus') {
-                $html = substr($html, 0, $pos) . $mark . $codeEntier . substr($html, $pos + strlen($mark));
+                $html = substr($html, 0, $pos) . $mark . $codeEntier . substr($html, $pos + strlen($mark) - $patch);
             }
             if ($code['position'] == 'dessous') {
-                $html = substr($html, 0, $pos) . $codeEntier . $mark . substr($html, $pos + strlen($mark));
+                $html = substr($html, 0, $pos) . $codeEntier . $mark . substr($html, $pos + strlen($mark) - $patch);
             }
         }
         return file_put_contents($filename, $html);
