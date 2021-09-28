@@ -42,11 +42,18 @@ class CrudmickCommand extends Command
     private $Entity;
     private $timestamptable;
     private $res;
-    private $input;
     private $extend;
     private $sortable;
+    private $output;
+    private $input;
+    private $io;
 
-
+    protected function initialize(InputInterface $input, OutputInterface $output)
+    {
+        $this->output = $output;
+        $this->input = $input;
+        $this->io = new SymfonyStyle($this->input, $this->output);
+    }
     protected function configure(): void
     {
         $this
@@ -56,19 +63,18 @@ class CrudmickCommand extends Command
             ->addOption('clean', null, InputOption::VALUE_NONE, 'for remove CM directories in your app directly');
     }
 
-    protected function execute(InputInterface $input, OutputInterface $output): int
+    protected function execute(): int
     {
         //var global
-        $io = new SymfonyStyle($input, $output);
-        $Entity = ucfirst($input->getArgument('entitie'));
+
+        $Entity = ucfirst($this->input->getArgument('entitie'));
         $timestamptable = ['createdAt', 'updatedAt', 'deletedAt'];
-        $this->input = $input;
         $this->Entity = $Entity;
         $this->timestamptable = $timestamptable;
         //data of entity bu reflection class
         if ($Entity) {
             if (!file_Exists('/app/src/Entity/' . $Entity . '.php'))
-                $io->error("This entity don't exist in /app/src/Entity");
+                $this->io->error("This entity don't exist in /app/src/Entity");
             else {
                 $this->getEffects(); // $res has many options (attr,opt,twig ... autre) of entity necessary for create
                 $this->createType();
@@ -78,7 +84,7 @@ class CrudmickCommand extends Command
 
                 $this->createIndex();
             }
-        } else $io->error('no Entity');
+        } else $this->io->error('no Entity');
         return 1;
     }
 
@@ -589,6 +595,10 @@ class CrudmickCommand extends Command
                     $tab['position'] = 'dessous';
                     $tab['mark'] = substr($string, $markbegin + strlen($baliseBegin), strpos($string, $baliseEnd, $markbegin) - $markbegin - strlen($baliseEnd));
                 }
+            }
+            if (!isset($tab['mark'])) {
+                $this->io->error('Pas de Mark détecté au dessus ou en dessus du code');
+                exit();
             }
             //on ajoute au tableau
             $res[] = $tab;
