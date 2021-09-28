@@ -162,7 +162,7 @@ class CrudmickCommand extends Command
         //code for sortable ATTR
         $cursorSortable = ''; //style of cursor for sortable
         if ($this->sortable) {
-            $html = $this->twigParser($html, ['sortable' => '{% set list=findOneBy("sortable",{"entite":' . $Entity . '}) %}' . "\n" . '{% if list != null %}<input type="hidden" id="ex_sortable" value="{{list.Ordre}}">' . "\n" . '{% endif %}<input entite="' . $Entity . '" id="save_sortable" type="hidden">"']);
+            $html = $this->twigParser($html, ['sortable' => '{% set list=findOneBy("sortable",{"entite":"' . $Entity . '"}) %}' . "\n" . '{% if list != null %}<input type="hidden" id="ex_sortable" value="{{list.Ordre}}">' . "\n" . '{% endif %}<input entite="' . $Entity . '" id="save_sortable" type="hidden">"']);
             //$cursorSortable = 'style="cursor:move;"';
         } else {
             $html = \str_replace('¤sortable¤', '', $html);
