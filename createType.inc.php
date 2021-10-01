@@ -43,7 +43,7 @@ foreach ($res as $field => $val) {
                 $type = "CollectionType::class";
                 $opts[] = "'entry_type' => $entityRelation" . "Type::class,'entry_options' => ['label' => false],'allow_add' => true,'by_reference' => false,'allow_delete' => true,'required' => false,";
                 $attrs[] = "'class' => 'collection'";
-                $collections .= "\nuse App\Form\\$entityRelation" . "Type;\n";
+                $collections .= "\nuse App\Form\CM\\$entityRelation" . "Type;\n";
                 //} else
                 if ($entityRelation) {
                     $collections .= "\nuse App\Entity\\$entityRelation;\n";
@@ -144,7 +144,6 @@ foreach ($biblio_use as $biblio) {
             break;
     }
 }
-
 //parse type.php with headers
 $html = $this->twigParser($html, ['adds' => $adds, 'uses' => $uses]);
 //create file
