@@ -87,11 +87,11 @@ foreach ($res as $field => $val) {
                     switch ($type) {
                         case 'index_picture':
                         case 'index_icon':
-                            $row .= "{%if $Entity.$field %} <a class=\"bigpicture\"   href=\"{{asset('/uploads/" . $field . "/'~" . $Entity . "." . $field . ")}}\"><img style='max-width:33%;' src=\"{{asset('/uploads/" . $field . "/'~" . $Entity . "." . $field . ")}}\"></a> {% endif %}";
+                            $row .= "{%if $Entity.$field %} <a class=\"bigpicture\"   href=\"{{asset(" . $Entity . "." . $field . ")}}\"><img style='max-width:33%;' src=\"{{asset(" . $Entity . "." . $field . ")}}\"></a> {% endif %}";
                             break;
                         case 'index_text':
                         default:
-                            $row .= "\n{%if $Entity.$field %}\n<a class=\"bigpicture\"   href=\"{{asset('/uploads/" . $field . "/'~" . $Entity . "." . $field . ")}}\">{{" . "$Entity.$field" . "|split('_',2)[1]}}</a>\n{% endif %}"; // add html form
+                            $row .= "\n{%if $Entity.$field %}\n<a class=\"bigpicture\"   href=\"{{asset(" . $Entity . "." . $field . ")}}\">{{" . "$Entity.$field" . "|split('¤',2)[1]}}</a>\n{% endif %}"; // add html form
                             break;
                     }
             }
