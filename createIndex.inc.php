@@ -51,6 +51,7 @@ foreach ($res as $field => $val) {
     $row = ''; //content temp row
     $filters = ''; //content the TWIG filters
     $no_index = false;
+    $collection = false; //memory collection or not
     //verify show for index
     if (isset($val['ATTR'])) $no_index = in_array('no_index', $val['ATTR']) ? true : false;
     //if no_index jump this field
@@ -60,6 +61,7 @@ foreach ($res as $field => $val) {
         if (isset($val['TWIG'])) foreach ($val['TWIG'] as $twig) $filters .= "|" . $twig;
         //if it's a relation field
         if ($this->is_relation($val['AUTRE']) !== false) {
+            $collection = true;
             $row .= "\n{% for item in $Entity.$field %}";
             if (isset($val['ATTR'])) {
                 $attr = explode('=>', $val['ATTR'][0]);
@@ -70,8 +72,8 @@ foreach ($res as $field => $val) {
             switch ($type) {
                 case 'index_picture':
                 case 'index_icon':
-                    $row .= "{%if item %} <a class=\"bigpicture\"   href=\"{{asset(item)}}\">
-                    <img style='max-width:33%;' src=\"{{asset(item)}}\"></a> {% endif %}";
+                    $row .= "{%if item %} <a class=\"bigpicture\"   href=\"{{asset(item.fichier)}}\">
+                    <img style='max-width:33%;' src=\"{{asset(item.fichier)}}\"></a> {% endif %}";
                     break;
                 case 'index_text':
                 default:
@@ -103,7 +105,7 @@ foreach ($res as $field => $val) {
                 } else {
                     $type = 'index_text';
                 }
-                if ($val['ALIAS'] == 'uploadjs') //uploadjs ATTR type for show
+                if ($val['ALIAS'] == 'uploadjs' and !$collection) //simple uploadjs not collection uploadjs
                     switch ($type) {
                         case 'index_picture':
                         case 'index_icon':

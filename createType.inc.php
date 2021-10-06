@@ -27,51 +27,58 @@ foreach ($res as $field => $val) {
     $Field = ucfirst($field);
     $attrs = []; //array of attributes
     $opts = []; //array of options
+    $collection = false; //memory for collection or not
     //if it's a relation field
     if ($this->is_relation($val['AUTRE']) !== false) {
         //determination of entity for add in use
         foreach ($val['AUTRE'] as $key => $value) {
             $entityRelation = ($SF->chaine_extract($value, 'targetEntity=', '::class'));
             $choiceentitie = false;
-            //for choiceentitie
-            if (isset($val['ALIAS']))
-                if ($val['ALIAS'] == 'choiceEntitie')
-                    $choiceentitie = true;
-            if ($choiceentitie == true)
-                $collections[] = "\nuse App\Form\\$entityRelation" . "Type;\n";
-            else {
-                $type = "CollectionType::class";
-                $opts[] = "'entry_type' => $entityRelation" . "Type::class,'entry_options' => ['label' => false],'allow_add' => true,'by_reference' => false,'allow_delete' => true,'required' => false";
-                $attrs[] = "'class' => 'collection'";
-                $collections[] = "\nuse App\Form\CM\\$entityRelation" . "Type;";
-                //} else
-                if ($entityRelation) {
-                    $collections[] = "\nuse App\Entity\\$entityRelation;";
+            if (isset($val['ALIAS'])) {
+                //contrôle
+                if (strpos($val['ALIAS'], 'persist') !== false)
+                    dd("merci d'ajouter ',cascade={\"persist\"' } à $value ");
+                $collection = true;
+                //3 possibilities: choiceentitie
+                /* --------------------------- for choiceentitie -------------------------- */
+                if ($val['ALIAS'] == 'choiceEntitie') {
+                    $collections[] = "\nuse App\Form\\$entityRelation" . "Type;\n";
                 }
-            }
+                /* ----------------------------- pour collection ---------------------------- */
+                if ($val['ALIAS'] == 'collection') {
+                    $nUpload = $numUpload == 0 ? '' : \strval($numUpload);
+                    //create files for upload
+                    file_put_contents("src/Form/CM/Upload$nUpload" . "Type.php", $this->twigParser(file_get_contents('crudmick/php/upload/UploadType.php'), array('upload' => "upload$nUpload", 'Upload' => "Upload$nUpload")));
+                    file_put_contents("src/Repository/CM/Upload$nUpload" . "Repository.php", $this->twigParser(file_get_contents('crudmick/php/upload/UploadRepository.php'), array('upload' => "upload$nUpload", 'Upload' => "Upload$nUpload")));
+                    file_put_contents("src/Entity/CM/Upload$nUpload" . ".php", $this->twigParser(file_get_contents('crudmick/php/upload/Upload.php'), array('upload' => "upload$nUpload", 'Upload' => "Upload$nUpload", 'extends' => $this->extend)));
+                    $type = "CollectionType::class";
+                    $opts[] = "'data_class' => null";
+                    $attrs[] = "'class' => 'collection'";
+                    $numUpload += 1;
+                    $collections[] = "\nuse Symfony\Component\Form\Extension\Core\Type\CollectionType;\n;";
+                }
+                /* ------------------------------ pour uploadjs ----------------------------- */
+                if ($val['ALIAS'] == 'uploadjs') {
+                    $type = "CollectionType::class";
+                    $opts[] = "'entry_type' => UploadType::class,'entry_options' => ['label' => false],'allow_add' => true,'by_reference' => false,'allow_delete' => true,'required' => false";
+                    $attrs[] = "'class' => 'uploadjs'";
+                    $collections[] = "\nuse App\Entity\\$entityRelation;\n"
+                        . "\nuse Symfony\Component\Form\Extension\Core\Type\CollectionType;\n;"
+                        . "\nuse App\Form\CM\UploadType;\n;";
+                }
+            } else dd('merci de préciser un alias pour ' . $value . ':choiceEntitie,collection ou uploadjs ');
         }
     }
     if (isset($val['ALIAS'])) {
-        if ($val['ALIAS'] == 'collection') {
-            $nUpload = $numUpload == 0 ? '' : \strval($numUpload);
-            //create files for upload
-            file_put_contents("src/Form/CM/Upload$nUpload" . "Type.php", $this->twigParser(file_get_contents('crudmick/php/upload/UploadType.php'), array('upload' => "upload$nUpload", 'Upload' => "Upload$nUpload")));
-            file_put_contents("src/Repository/CM/Upload$nUpload" . "Repository.php", $this->twigParser(file_get_contents('crudmick/php/upload/UploadRepository.php'), array('upload' => "upload$nUpload", 'Upload' => "Upload$nUpload")));
-            file_put_contents("src/Entity/CM/Upload$nUpload" . ".php", $this->twigParser(file_get_contents('crudmick/php/upload/Upload.php'), array('upload' => "upload$nUpload", 'Upload' => "Upload$nUpload", 'extends' => $this->extend)));
-            $type = "FileType::class";
-            $opts[] = "'data_class' => null";
-            $attrs[] = "'class' => 'collection'";
-            $numUpload += 1;
-        }
         if ($val['ALIAS'] == 'tinymce') {
             $attrs[] = "'class' => 'tinymce'";
         }
     }
 
-
     if ($field != 'id') {
         //for use by ALIAS
-        if (isset($val['ALIAS']))
+        if (isset($val['ALIAS'])  and !$collection)
+            //si pas une relation
             if (isset($tab_ALIAS[$val['ALIAS']]))
                 if (!in_array(ucfirst($tab_ALIAS[$val['ALIAS']]), $biblio_use)) {
                     $biblio_use[] = ucfirst($tab_ALIAS[$val['ALIAS']]);
@@ -126,10 +133,10 @@ foreach ($res as $field => $val) {
         $adds .= ")";
     }
 }
-//create uses
+//create uses for collections
 if (count($collections) > 0) {
 
-    $uses .= implode("", array_unique($collections)) . "\nuse Symfony\Component\Form\Extension\Core\Type\CollectionType;\n";
+    $uses .= implode("", array_unique($collections));
 }
 //create biblio
 foreach ($biblio_use as $biblio) {
