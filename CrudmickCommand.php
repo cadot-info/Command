@@ -130,19 +130,21 @@ class CrudmickCommand extends Command
         }
 
         //récupération de l'ancien fichier
-        $ancien = file_get_contents($filename);
-        //récupération des anciens codes à protéger et à remettre
-        $codes = $this->getCodes($ancien, $baliseBegin, $baliseEnd);
-        foreach ($codes as $code) {
-            //on recherche la mark unique
-            $pos = strpos($html, $code['mark']) - strlen($baliseBegin);
-            $mark = "\n" . $baliseBegin . $code['mark'] . $baliseEnd . "\n";
-            $codeEntier = "\n" . $baliseBegin . "code" . $baliseEnd . $code['code'] . $baliseBegin . "fincode" . $baliseEnd . "\n";
-            if ($code['position'] == 'dessus') {
-                $html = substr($html, 0, $pos) . $mark . $codeEntier . substr($html, $pos + strlen($mark) - $patch);
-            }
-            if ($code['position'] == 'dessous') {
-                $html = substr($html, 0, $pos) . $codeEntier . $mark . substr($html, $pos + strlen($mark) - $patch);
+        if (\file_exists($filename)) {
+            $ancien = file_get_contents($filename);
+            //récupération des anciens codes à protéger et à remettre
+            $codes = $this->getCodes($ancien, $baliseBegin, $baliseEnd);
+            foreach ($codes as $code) {
+                //on recherche la mark unique
+                $pos = strpos($html, $code['mark']) - strlen($baliseBegin);
+                $mark = "\n" . $baliseBegin . $code['mark'] . $baliseEnd . "\n";
+                $codeEntier = "\n" . $baliseBegin . "code" . $baliseEnd . $code['code'] . $baliseBegin . "fincode" . $baliseEnd . "\n";
+                if ($code['position'] == 'dessus') {
+                    $html = substr($html, 0, $pos) . $mark . $codeEntier . substr($html, $pos + strlen($mark) - $patch);
+                }
+                if ($code['position'] == 'dessous') {
+                    $html = substr($html, 0, $pos) . $codeEntier . $mark . substr($html, $pos + strlen($mark) - $patch);
+                }
             }
         }
         return file_put_contents($filename, $html);

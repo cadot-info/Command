@@ -19,7 +19,7 @@ unset($res['createdAt']);
 unset($res['deletedAt']);
 $adds = ' $builder'; //contents add of builder
 $uses = ''; //for parse uses in php file
-$collections = ''; //content collections for use
+$collections = []; //content collections for use
 $biblio_use = []; //content uses
 $numUpload = 0; //counter for file name
 foreach ($res as $field => $val) {
@@ -38,15 +38,15 @@ foreach ($res as $field => $val) {
                 if ($val['ALIAS'] == 'choiceEntitie')
                     $choiceentitie = true;
             if ($choiceentitie == true)
-                $collections .= "\nuse App\Form\\$entityRelation" . "Type;\n";
+                $collections[] = "\nuse App\Form\\$entityRelation" . "Type;\n";
             else {
                 $type = "CollectionType::class";
-                $opts[] = "'entry_type' => $entityRelation" . "Type::class,'entry_options' => ['label' => false],'allow_add' => true,'by_reference' => false,'allow_delete' => true,'required' => false,";
+                $opts[] = "'entry_type' => $entityRelation" . "Type::class,'entry_options' => ['label' => false],'allow_add' => true,'by_reference' => false,'allow_delete' => true,'required' => false";
                 $attrs[] = "'class' => 'collection'";
-                $collections .= "\nuse App\Form\CM\\$entityRelation" . "Type;\n";
+                $collections[] = "\nuse App\Form\CM\\$entityRelation" . "Type;";
                 //} else
                 if ($entityRelation) {
-                    $collections .= "\nuse App\Entity\\$entityRelation;\n";
+                    $collections[] = "\nuse App\Entity\\$entityRelation;";
                 }
             }
         }
@@ -127,8 +127,10 @@ foreach ($res as $field => $val) {
     }
 }
 //create uses
-if ($collections) $uses .= $collections . "\nuse Symfony\Component\Form\Extension\Core\Type\CollectionType;\n";
+if (count($collections) > 0) {
 
+    $uses .= implode("", array_unique($collections)) . "\nuse Symfony\Component\Form\Extension\Core\Type\CollectionType;\n";
+}
 //create biblio
 foreach ($biblio_use as $biblio) {
     switch ($biblio) {
@@ -144,6 +146,7 @@ foreach ($biblio_use as $biblio) {
             break;
     }
 }
+
 //parse type.php with headers
 $html = $this->twigParser($html, ['adds' => $adds, 'uses' => $uses]);
 //create file

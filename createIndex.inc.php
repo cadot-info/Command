@@ -61,7 +61,28 @@ foreach ($res as $field => $val) {
 
         //if it's a relation field
         if ($this->is_relation($val['AUTRE']) !== false) {
-            $row .= "\n{% for item in $Entity.$field %}{{ item }},{% endfor %}";
+            $row .= "\n{% for item in $Entity.$field %}";
+            if (isset($val['ATTR'])) {
+                $attr = explode('=>', $val['ATTR'][0]);
+                $type = $attr[0];
+            } else {
+                $type = 'index_text';
+            }
+            switch ($type) {
+                case 'index_picture':
+                case 'index_icon':
+                    $row .= "{%if item %} <a class=\"bigpicture\"   href=\"{{asset(item)}}\">
+                    <img style='max-width:33%;' src=\"{{asset(item)}}\"></a> {% endif %}";
+                    break;
+                case 'index_text':
+                default:
+                    $row .= "\n{{ item$filters }}{%if not loop.last%} ,{% endif %}
+                    "; // add html form
+                    break;
+            }
+
+            $row .= "
+            {% endfor %}";
         }
 
         //if it's a choice
