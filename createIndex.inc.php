@@ -58,7 +58,6 @@ foreach ($res as $field => $val) {
         $Field = ucfirst($field);
         //create TWIG filters
         if (isset($val['TWIG'])) foreach ($val['TWIG'] as $twig) $filters .= "|" . $twig;
-
         //if it's a relation field
         if ($this->is_relation($val['AUTRE']) !== false) {
             $row .= "\n{% for item in $Entity.$field %}";
@@ -108,7 +107,8 @@ foreach ($res as $field => $val) {
                     switch ($type) {
                         case 'index_picture':
                         case 'index_icon':
-                            $row .= "{%if $Entity.$field %} <a class=\"bigpicture\"   href=\"{{asset(" . $Entity . "." . $field . ")}}\"><img style='max-width:33%;' src=\"{{asset(" . $Entity . "." . $field . ")}}\"></a> {% endif %}";
+                            $styles = 'max-width:33%;';
+                            $row .= "{%if $Entity.$field %} <a class=\"bigpicture\"   href=\"{{asset(" . $Entity . "." . $field . ")}}\"><img style='$styles' src=\"{{asset(" . $Entity . "." . $field . ")}}\"></a> {% endif %}";
                             break;
                         case 'index_text':
                         default:
@@ -116,7 +116,7 @@ foreach ($res as $field => $val) {
                             {% if '¤' in $Entity.$field %}\n
                             {{" . "$Entity.$field" . "|split('¤',2)[1]}}\n
                             {% else %}\n
-                            {{ $Entity.$field }}\n
+                            {{ $Entity.$field" . "$filters}}\n
                             {% endif %}\n
                             </a>\n{% endif %}
                             "; // add html form
