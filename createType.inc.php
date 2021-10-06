@@ -52,7 +52,7 @@ foreach ($res as $field => $val) {
         }
     }
     if (isset($val['ALIAS'])) {
-        if ($val['ALIAS'] == 'uploadjs') {
+        if ($val['ALIAS'] == 'collection') {
             $nUpload = $numUpload == 0 ? '' : \strval($numUpload);
             //create files for upload
             file_put_contents("src/Form/CM/Upload$nUpload" . "Type.php", $this->twigParser(file_get_contents('crudmick/php/upload/UploadType.php'), array('upload' => "upload$nUpload", 'Upload' => "Upload$nUpload")));
@@ -60,7 +60,7 @@ foreach ($res as $field => $val) {
             file_put_contents("src/Entity/CM/Upload$nUpload" . ".php", $this->twigParser(file_get_contents('crudmick/php/upload/Upload.php'), array('upload' => "upload$nUpload", 'Upload' => "Upload$nUpload", 'extends' => $this->extend)));
             $type = "FileType::class";
             $opts[] = "'data_class' => null";
-            $attrs[] = "'class' => 'uploadjs'";
+            $attrs[] = "'class' => 'collection'";
             $numUpload += 1;
         }
         if ($val['ALIAS'] == 'tinymce') {
