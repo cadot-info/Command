@@ -18,7 +18,7 @@ unset($res['updatedAt']);
 unset($res['createdAt']);
 unset($res['deletedAt']);
 $adds = ' $builder'; //contents add of builder
-$uses = ''; //for parse uses in php file
+$uses = []; //for parse uses in php file
 $collections = []; //content collections for use
 $biblio_use = []; //content uses
 $numUpload = 0; //counter for file name
@@ -42,29 +42,28 @@ foreach ($res as $field => $val) {
                 //3 possibilities: choiceentitie
                 /* --------------------------- for choiceentitie -------------------------- */
                 if ($val['ALIAS'] == 'choiceEntitie') {
-                    $collections[] = "\nuse App\Form\\$entityRelation" . "Type;\n";
+                    $uses[] = "App\Form\\$entityRelation" . "Type";
                 }
                 /* ----------------------------- pour collection ---------------------------- */
                 if ($val['ALIAS'] == 'collection') {
                     $nUpload = $numUpload == 0 ? '' : \strval($numUpload);
-                    //create files for upload
-                    file_put_contents("src/Form/CM/Upload$nUpload" . "Type.php", $this->twigParser(file_get_contents('crudmick/php/upload/UploadType.php'), array('upload' => "upload$nUpload", 'Upload' => "Upload$nUpload")));
-                    file_put_contents("src/Repository/CM/Upload$nUpload" . "Repository.php", $this->twigParser(file_get_contents('crudmick/php/upload/UploadRepository.php'), array('upload' => "upload$nUpload", 'Upload' => "Upload$nUpload")));
-                    file_put_contents("src/Entity/CM/Upload$nUpload" . ".php", $this->twigParser(file_get_contents('crudmick/php/upload/Upload.php'), array('upload' => "upload$nUpload", 'Upload' => "Upload$nUpload", 'extends' => $this->extend)));
+                    $this->createfileUpload($numUpload);
                     $type = "CollectionType::class";
                     $opts[] = "'data_class' => null";
                     $attrs[] = "'class' => 'collection'";
                     $numUpload += 1;
-                    $collections[] = "\nuse Symfony\Component\Form\Extension\Core\Type\CollectionType;\n;";
+                    $uses[] = "Symfony\Component\Form\Extension\Core\Type\CollectionType";
                 }
                 /* ------------------------------ pour uploadjs ----------------------------- */
                 if ($val['ALIAS'] == 'uploadjs') {
+                    $nUpload = $numUpload == 0 ? '' : \strval($numUpload);
+                    $this->createfileUpload($numUpload);
                     $type = "CollectionType::class";
                     $opts[] = "'entry_type' => UploadType::class,'entry_options' => ['label' => false],'allow_add' => true,'by_reference' => false,'allow_delete' => true,'required' => false";
                     $attrs[] = "'class' => 'uploadjs'";
-                    $collections[] = "\nuse App\Entity\\$entityRelation;\n"
-                        . "\nuse Symfony\Component\Form\Extension\Core\Type\CollectionType;\n;"
-                        . "\nuse App\Form\CM\UploadType;\n;";
+                    $uses[] = "App\Entity\\$entityRelation";
+                    $uses[] = "Symfony\Component\Form\Extension\Core\Type\CollectionType";
+                    $uses[] = "App\Form\CM\UploadType";
                 }
             } else dd('merci de préciser un alias pour ' . $value . ':choiceEntitie,collection ou uploadjs ');
         }
@@ -133,29 +132,28 @@ foreach ($res as $field => $val) {
         $adds .= ")";
     }
 }
-//create uses for collections
-if (count($collections) > 0) {
-
-    $uses .= implode("", array_unique($collections));
-}
 //create biblio
 foreach ($biblio_use as $biblio) {
     switch ($biblio) {
         case 'CKEditor':
-            $uses .= "use FOS\CKEditorBundle\Form\Type\\" . $biblio . "Type;\n";
+            $uses[] = "FOS\CKEditorBundle\Form\Type\\" . $biblio . "Type";
             break;
         case 'CentiMetre':
         case 'Metre':
-            $uses .= "use App\Form\Type\\" . $biblio . "Type;\n";
+            $uses[] = "App\Form\Type\\" . $biblio . "Type";
             break;
         default:
-            $uses .= "use Symfony\Component\Form\Extension\Core\Type\\" . $biblio . "Type;\n";
+            $uses[] = "Symfony\Component\Form\Extension\Core\Type\\" . $biblio . "Type";
             break;
     }
 }
+$usesstring = "";
+foreach (array_unique($uses) as $use) {
+    $usesstring .= "\nuse $use;";
+}
 
 //parse type.php with headers
-$html = $this->twigParser($html, ['adds' => $adds, 'uses' => $uses]);
+$html = $this->twigParser($html, ['adds' => $adds, 'uses' => $usesstring]);
 //create file
 if ($this->input->getOption('origin'))
     $this->saveFileWithCodes('/app/src/Form/' .  $Entity . 'Type.php', $html);

@@ -246,6 +246,34 @@ class CrudmickCommand extends Command
         }
         return $relationFind;
     }
+
+    function createfileUpload($nUpload)
+    {
+        //create files for upload
+        file_put_contents("src/Form/CM/Upload$nUpload" . "Type.php", $this->twigParser(file_get_contents('crudmick/php/upload/tpl/UploadType.php'), array('num' => "$nUpload")));
+        file_put_contents("src/Repository/CM/Upload$nUpload" . "Repository.php", $this->twigParser(file_get_contents('crudmick/php/upload/tpl/UploadRepository.php'), array('num' => "$nUpload")));
+        file_put_contents("src/Entity/CM/Upload$nUpload" . ".php", $this->twigParser(file_get_contents('crudmick/php/upload/tpl/Upload.php'), array('num' => "$nUpload", 'extends' => $this->extend)));
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    /* -------------------------------------------------------------------------- */
+    /*                                  pour show                                 */
+    /* -------------------------------------------------------------------------- */
+
     private function show()
     {
         $res = $this->res;
@@ -388,6 +416,8 @@ class CrudmickCommand extends Command
                 }
             } //cas spéciaux
         } //boucle sur les fields
+
+
         $show .= "
     </ul>
     </div>";
