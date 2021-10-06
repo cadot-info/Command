@@ -68,21 +68,28 @@ foreach ($res as $field => $val) {
             } else dd('merci de préciser un alias pour ' . $value . ':choiceEntitie,collection ou uploadjs ');
         }
     }
-    if (isset($val['ALIAS'])) {
-        if ($val['ALIAS'] == 'tinymce') {
-            $attrs[] = "'class' => 'tinymce'";
-        }
+    if (isset($val['ALIAS']) and !$collection) {
     }
-
     if ($field != 'id') {
         //for use by ALIAS
         if (isset($val['ALIAS'])  and !$collection)
             //si pas une relation
-            if (isset($tab_ALIAS[$val['ALIAS']]))
+            if (isset($tab_ALIAS[$val['ALIAS']])) {
+                /* ------------------ ajout du type en fonction de l'alias des uses ------------------ */
                 if (!in_array(ucfirst($tab_ALIAS[$val['ALIAS']]), $biblio_use)) {
                     $biblio_use[] = ucfirst($tab_ALIAS[$val['ALIAS']]);
                     $type = ucfirst($tab_ALIAS[$val['ALIAS']]) . "Type::class";
                 }
+                /* --------------------------------- tinymce -------------------------------- */
+                if ($val['ALIAS'] == 'tinymce') {
+                    $attrs[] = "'class' => 'tinymce'";
+                }
+                /* -------------------------------- uploadjs simple -------------------------------- */
+                if ($val['ALIAS'] == 'uploadjs') {
+                    $type = "FileType::class";
+                    $attrs[] = "'class' => 'uploadjs'";
+                }
+            }
         //for use by OPT
         if (isset($val['OPT']))
             if ($values = $this->searchInValue($val['OPT'], 'choices')) {
