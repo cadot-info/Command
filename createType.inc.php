@@ -88,6 +88,7 @@ foreach ($res as $field => $val) {
                 if ($val['ALIAS'] == 'uploadjs') {
                     $type = "FileType::class";
                     $attrs[] = "'class' => 'uploadjs'";
+                    $opts[] = "'data_class' => null";
                 }
             }
         //for use by OPT
