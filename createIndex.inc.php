@@ -72,7 +72,7 @@ foreach ($res as $field => $val) {
             switch ($type) {
                 case 'index_picture':
                 case 'index_icon':
-                    $row .= "{%if item %} <a class=\"bigpicture\"   href=\"{{asset(item.fichier)}}\">
+                    $row .= "{%if item!='' %} <a class=\"bigpicture\"   href=\"{{asset(item.fichier)}}\">
                     <img style='max-width:33%;' src=\"{{asset(item.fichier)}}\"></a> {% endif %}";
                     break;
                 case 'index_text':
@@ -110,11 +110,11 @@ foreach ($res as $field => $val) {
                         case 'index_picture':
                         case 'index_icon':
                             $styles = 'max-width:33%;';
-                            $row .= "{%if $Entity.$field %} <a class=\"bigpicture\"   href=\"{{asset(" . $Entity . "." . $field . ")}}\"><img style='$styles' src=\"{{asset(" . $Entity . "." . $field . ")}}\"></a> {% endif %}";
+                            $row .= "{% if $Entity.$field !='' %} <a class=\"bigpicture\"   href=\"{{asset(" . $Entity . "." . $field . ")}}\"><img style='$styles' src=\"{{asset(" . $Entity . "." . $field . ")}}\"></a> {% endif %}";
                             break;
                         case 'index_text':
                         default:
-                            $row .= "\n{%if $Entity.$field %}\n<a class=\"bigpicture\"   href=\"{{asset(" . $Entity . "." . $field . ")}}\">\n
+                            $row .= "\n{% if $Entity.$field !='' %}\n<a class=\"bigpicture\"   href=\"{{asset(" . $Entity . "." . $field . ")}}\">\n
                             {% if '¤' in $Entity.$field %}\n
                             {{" . "$Entity.$field" . "|split('¤',2)[1]}}\n
                             {% else %}\n
