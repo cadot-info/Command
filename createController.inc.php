@@ -3,7 +3,7 @@ $res = $this->res;
 $Entity = $this->Entity;
 $entity = strToLower($Entity);
 $timestamptable = $this->timestamptable;
-$html = $this->twigParser(file_get_contents($this->path . 'controller.php'), array('entity' => $entity, 'Entity' => $Entity, 'extends' => $this->extend));
+$html = $this->twigParser(file_get_contents($this->path . 'controller.php'), array('entity' => $entity, 'Entity' => $Entity, 'extends' => $this->extend, 'partie' => $this->partie));
 //lop for autocomplete
 $autocompleteRender = '';
 foreach ($res as $field => $val) {

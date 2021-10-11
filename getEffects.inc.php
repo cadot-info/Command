@@ -38,7 +38,7 @@ foreach ($r->getProperties() as $property) {
     }
 }
 //minimum options for crudmick
-if (!isset($this->res['id']['EXTEND'])) {
+if (!isset($res['id']['EXTEND'])) {
     //see in .env
     if (!isset($_ENV['EXTEND'])) {
         echo ('Please get a EXTEND for id (example: EXTEND=admin/admin.html.twig, used bu twigs)');
@@ -46,7 +46,10 @@ if (!isset($this->res['id']['EXTEND'])) {
     } else
         $this->extend = $_ENV['EXTEND'];
 } else {
-    $this->extend = $this->res['id']['EXTEND'];
+    $this->extend = $res['id']['EXTEND'];
+}
+if (isset($res['id']['PARTIE'])) {
+    $this->partie = $res['id']['PARTIE'];
 }
 //SORTABLE
 $this->sortable = false;
