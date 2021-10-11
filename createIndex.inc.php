@@ -29,8 +29,10 @@ foreach ($res as $field => $val) {
     $no_index = false;
     //verify show for index
     if (isset($val['ATTR'])) $no_index = in_array('no_index', $val['ATTR']) ? true : false;
+    //verify for timestamp
+    $noTimestamp = $this->searchInValue($res['id']['AUTRE'], 'no_index_' . $field) ? true : false;
     //if no_index jump this field
-    if (!$no_index) {
+    if (!$no_index and !$noTimestamp) {
         $entete .= "<th>";
         //label or name for text field
         $finentete = ucfirst($field);
@@ -130,15 +132,18 @@ foreach ($res as $field => $val) {
             if ($val['ALIAS'] == 'editorjs')
                 $row .= "texte";
         }
+        //pour les autres
         //timestamptable
-        if (in_array($field, $timestamptable))
-            $row .= "{{ $Entity.$field is not empty ? $Entity.$field|date('d/m à H:i', 'Europe/Paris')$filters}}";
+        if (in_array($field, $timestamptable)) {
+            if (!$this->searchInValue($res['id']['AUTRE'], 'no_index_' . $field))
+                $row .= "{{ $Entity.$field is not empty ? $Entity.$field|date('d/m à H:i', 'Europe/Paris')$filters}}";
+        }
         //for other
-        if (!$row) {
+        else if (!$row) {
             $row .= "{{ $Entity.$field$filters}}";
         }
         //ADD row
-        $finalrow .= "\n<td" . $cursorSortable . ">$row</td>";
+        if ($row) $finalrow .= "\n<td" . $cursorSortable . ">$row</td>";
     }
 }
 //parse index.html with headers
