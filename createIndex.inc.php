@@ -117,8 +117,8 @@ foreach ($res as $field => $val) {
                         case 'index_text':
                         default:
                             $row .= "\n{% if $Entity.$field !='' %}\n<a class=\"bigpicture\"   href=\"{{asset(" . $Entity . "." . $field . ")}}\">\n
-                            {% if '¤' in $Entity.$field %}\n
-                            {{" . "$Entity.$field" . "|split('¤',2)[1]}}\n
+                            {% if '_' in $Entity.$field %}\n
+                            {{" . "$Entity.$field" . "|split('_',2)[1]}}\n
                             {% else %}\n
                             {{ $Entity.$field" . "$filters}}\n
                             {% endif %}\n

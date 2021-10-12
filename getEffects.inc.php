@@ -41,14 +41,21 @@ foreach ($r->getProperties() as $property) {
 if (!isset($res['id']['EXTEND'])) {
     //see in .env
     if (!isset($_ENV['EXTEND'])) {
-        echo ('Please get a EXTEND for id (example: EXTEND=admin/admin.html.twig, used bu twigs)');
+        echo ('Please get a EXTEND for id (example: EXTEND=admin/admin.html.twig, used by twigs)');
         exit();
     } else
         $this->extend = $_ENV['EXTEND'];
 } else {
     $this->extend = $res['id']['EXTEND'];
 }
-if (isset($res['id']['PARTIE'])) {
+if (!isset($res['id']['PARTIE'])) {
+    //see in .env
+    if (!isset($_ENV['PARTIE'])) {
+        echo ('Please get a PARTIE for id (example: PARTIE=admin, used by twigs)');
+        exit();
+    } else
+        $this->partie = $_ENV['PARTIE'];
+} else {
     $this->partie = $res['id']['PARTIE'];
 }
 //SORTABLE

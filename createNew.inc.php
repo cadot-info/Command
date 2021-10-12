@@ -17,14 +17,14 @@ foreach ($res as $field => $val) {
         //verify show for new
         if (isset($val['ATTR'])) $no_new = in_array('no_new', $val['ATTR']) ? true : false;
         //if no_new insert in twig, field is rendered
-        $twigNew['form_rows'] .= $no_new ? ' {% do form.' . $field . '.setRendered() %}' . "\n" : '{{ form_row(form.' . $field . ') }}' . "\n";
+        $twigNew['form_rows'] .= $no_new ?  ' {% do form.' . $field . '.setRendered() %}' . "\n" : '';
         //All fields except no_new and id
         if ($no_new == false) {
             if (isset($val['ALIAS'])) {
                 //ALIAS uploadjs
                 // he has ATTR file, text or picture
                 if ($val['ALIAS'] == 'uploadjs') {
-                    $twigNew['form_rows'] .= '<div class="form-group">';
+                    //$twigNew['form_rows'] .= '<div class="form-group">';
                     //get the type by ATTR with default text
                     if (isset($val['ATTR'])) {
                         $attr = explode('=>', $val['ATTR'][0]);
@@ -44,11 +44,12 @@ foreach ($res as $field => $val) {
                             break;
                         case 'new_text':
                         default:
-                            $twigNew['form_rows'] .= "\n<label class='exNomfile'>{{ $entity.$field }}</label>";
+                            $twigNew['form_rows'] .= "\n{{ form_row(form.$field ,{'value':form.$field.vars.data}) }}";
                             break;
                     }
-                    $twigNew['form_rows'] .= "\n</div>\n";
-                }
+                    //$twigNew['form_rows'] .= "\n</div>\n";
+                } else
+                    $twigNew['form_rows'] .= '{{ form_row(form.' . $field . ') }}' . "\n";
                 //for editorjs
                 if ($val['ALIAS'] == 'editorjs') {
                     $twigNew['form_rows'] .= "<div class='editorjs' id='editorjs_$numEditor'></div>\n";
@@ -57,7 +58,8 @@ foreach ($res as $field => $val) {
                 //for autocomplete.js
                 if ($val['ALIAS'] == 'autocomplete')
                     $twigNew['form_rows'] .= "<input type='hidden' class='autocomplete' data-id='$entity" . "_" . "$field' value='{{autocomplete$Field}}'>\n";
-            }
+            } else
+                $twigNew['form_rows'] .= '{{ form_row(form.' . $field . ') }}' . "\n";
         }
     }
 }
