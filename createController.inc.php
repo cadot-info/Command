@@ -10,17 +10,17 @@ foreach ($res as $field => $val) {
     $Field = ucfirst($field);
     if (isset($val['ALIAS'])) {
         if ($val['ALIAS'] == 'autocomplete') {
-            $autocompleteRender .= "'autocomplete$Field'=>\$functionEntitie->getAllOfFields('$entity','$field'),";
+            $autocompleteRender .= "'autocomplete$Field'=>\$EntityFunctions->getAllOfFields('$entity','$field'),";
         }
     }
 }
 //parse the html with autocomplete
 if ($autocompleteRender) {
     /**@var string $html */
-    $html = $this->twigParser($html, array('autocompleteRender' => substr($autocompleteRender, 0, -1), 'autocompleteService' => 'use App\CMService\FunctionEntitie'));
+    $html = $this->twigParser($html, array('autocompleteRender' => substr($autocompleteRender, 0, -1), 'autocompleteService' => 'use App\CMService\EntityFunctions'));
     //specific replacement for php for include Service
-    $html = str_replace('new(Request $request)', 'new(Request $request,FunctionEntitie $functionEntitie)', $html);
-    $html = str_replace('edit(Request $request', 'edit(Request $request,FunctionEntitie $functionEntitie', $html);
+    $html = str_replace('new(Request $request)', 'new(Request $request,EntityFunctions $EntityFunctions)', $html);
+    $html = str_replace('edit(Request $request', 'edit(Request $request,EntityFunctions $EntityFunctions', $html);
 } else
     $html = str_replace('¤autocompleteRender¤,', '', $html);
 //create file
